@@ -52,8 +52,7 @@ def mainProcess(browserPath, window, editedW):
             continue
 
         titleOriginal = data['title']  # Store metadata into vars
-        
-        # Nettoyage des extensions de métadonnées (inclut la faute de frappe)
+        # clean json name 
         for ext in ['.supplemental-metadata', '.supplemental-metada']:
             titleOriginal: str = titleOriginal.replace(ext, '')
 
