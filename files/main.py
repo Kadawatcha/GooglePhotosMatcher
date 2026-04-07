@@ -70,7 +70,7 @@ def mainProcess(browserPath, window, editedW):
         # Gestion des suffixes Google Photos cachés (_PORTRAIT, _NFNR)
         parts = titleOriginal.rsplit('.', 1)
         if len(parts) == 2 and not os.path.exists(os.path.join(current_dir, titleOriginal)):
-            for suffix in ['_PORTRAIT', '_NFNR']:
+            for suffix in ['_PORTRAIT', '_NFNR']: # bypass google added files
                 candidate = f"{parts[0]}{suffix}.{parts[1]}"
                 # On vérifie si ce fichier existe dans le dossier source ou la destination
                 if os.path.exists(os.path.join(current_dir, candidate)) or os.path.exists(os.path.join(fixedMediaPath, candidate)):
