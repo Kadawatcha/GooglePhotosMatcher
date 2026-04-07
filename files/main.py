@@ -67,22 +67,29 @@ def mainProcess(browserPath, window, editedW):
         os.makedirs(fixedMediaPath, exist_ok=True)
         os.makedirs(nonEditedMediaPath, exist_ok=True)
 
-        # Gestion des suffixes Google Photos cachés (_PORTRAIT, _NFNR)
+        # Gestion des suffixes Google Photos cachés (_PORTRAIT, _MFNR, etc.)
         parts = titleOriginal.rsplit('.', 1)
-        if len(parts) == 2 and not os.path.exists(os.path.join(current_dir, titleOriginal)):
-            for suffix in ['_PORTRAIT', '_NFNR']: # bypass google added files
-                candidate = f"{parts[0]}{suffix}.{parts[1]}"
-                # On vérifie si ce fichier existe dans le dossier source ou la destination
-                if os.path.exists(os.path.join(current_dir, candidate)) or os.path.exists(os.path.join(fixedMediaPath, candidate)):
-                    titleOriginal = candidate
-                    break
+        base_candidates = [titleOriginal]
+        if len(parts) == 2:
+            # 1. Essayer d'ajouter le suffixe si la photo l'a, mais pas le JSON
+            for suffix in ['_PORTRAIT', 'PORTRAIT', '_NFNR', '_MFNR']:
+                base_candidates.append(f"{parts[0]}{suffix}.{parts[1]}")
+            
+            # 2. Essayer de retirer le suffixe si le JSON l'a, mais pas la photo
+            for suffix in ['_PORTRAIT', 'PORTRAIT', '_NFNR', '_MFNR']:
+                if parts[0].endswith(suffix):
+                    base_candidates.append(f"{parts[0][:-len(suffix)]}.{parts[1]}")
 
         if current_dir not in mediaMoved:
             mediaMoved[current_dir] = []
 
+        title = "None"
         try:
-            title = searchMedia(current_dir, titleOriginal, mediaMoved[current_dir], nonEditedMediaPath, editedWord)
-
+            for candidate_title in base_candidates:
+                title = searchMedia(current_dir, candidate_title, mediaMoved[current_dir], nonEditedMediaPath, editedWord)
+                if str(title) != "None":
+                    titleOriginal = candidate_title
+                    break
         except Exception as e:
             print("Error on searchMedia() with file " + titleOriginal)
             errorCounter += 1
@@ -92,18 +99,23 @@ def mainProcess(browserPath, window, editedW):
         already_moved = False
         if str(title) == "None":
             # Fusion : Vérifier si le fichier a déjà été déplacé par un autre JSON
-            if os.path.exists(os.path.join(fixedMediaPath, titleOriginal)):
-                title = titleOriginal
-                filepath = os.path.join(fixedMediaPath, title)
-                already_moved = True
-            else:
-                parts = titleOriginal.rsplit('.', 1)
-                if len(parts) == 2:
-                    edited_title = f"{parts[0]}-{editedWord}.{parts[1]}"
-                    if os.path.exists(os.path.join(fixedMediaPath, edited_title)):
-                        title = edited_title
-                        filepath = os.path.join(fixedMediaPath, title)
-                        already_moved = True
+            for candidate_title in base_candidates:
+                if os.path.exists(os.path.join(fixedMediaPath, candidate_title)):
+                    titleOriginal = candidate_title
+                    title = candidate_title
+                    filepath = os.path.join(fixedMediaPath, title)
+                    already_moved = True
+                    break
+                else:
+                    cand_parts = candidate_title.rsplit('.', 1)
+                    if len(cand_parts) == 2:
+                        edited_title = f"{cand_parts[0]}-{editedWord}.{cand_parts[1]}"
+                        if os.path.exists(os.path.join(fixedMediaPath, edited_title)):
+                            titleOriginal = candidate_title
+                            title = edited_title
+                            filepath = os.path.join(fixedMediaPath, title)
+                            already_moved = True
+                            break
             
             if not already_moved:
                 print(titleOriginal + " not found")
