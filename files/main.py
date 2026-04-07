@@ -77,7 +77,6 @@ def mainProcess(browserPath, window, editedW):
 
         # METADATA EDITION
         timeStamp = int(data['photoTakenTime']['timestamp'])  # Get creation time
-        print(filepath)
 
         if title.rsplit('.', 1)[1].casefold() in piexifCodecs:  # If EXIF is supported
             try:
@@ -110,5 +109,6 @@ def mainProcess(browserPath, window, editedW):
         os.remove(json_path)
         mediaMoved[current_dir].append(title)
         successCounter += 1
+        print(f"[{index + 1}/{total_files}] Matched successfully: {title}")
 
     window.write_event_value('-UPDATE_DONE-', (successCounter, errorCounter))
