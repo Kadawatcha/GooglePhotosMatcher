@@ -4,7 +4,7 @@ from datetime import datetime
 import piexif
 from win32_setctime import setctime
 from fractions import Fraction
-import exiftool
+import subprocess
 
 
 # Function to search media associated to the JSON
@@ -187,10 +187,19 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
 
     # Exécuter ExifTool sans créer de copie de sauvegarde (-overwrite_original)
     try:
-        with exiftool.ExifToolHelper(executable=exiftool_path) as et:
-            et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
-    except Exception as e:
-        if "not found" in str(e).lower() or isinstance(e, FileNotFoundError):
+        args = [exiftool_path, "-overwrite_original"]
+        for tag, value in tags.items():
+            args.append(f"-{tag}={value}")
+        args.append(filepath)
+        subprocess.run(args, capture_output=True, text=True, timeout=60, check=True)
+    except subprocess.TimeoutExpired:
+        raise Exception("ExifTool timed out after 60 seconds.")
+    except (subprocess.CalledProcessError, Exception) as e:
+        if isinstance(e, subprocess.CalledProcessError):
+            error_msg = e.stderr
+        else:
+            error_msg = str(e)
+        if "not found" in error_msg.lower() or isinstance(e, FileNotFoundError):
             raise Exception("ExifTool introuvable. Veuillez télécharger exiftool.exe et le placer dans le même dossier que le script.")
         else:
-            raise Exception(f"Erreur d'exécution ExifTool : {str(e)}")
+            raise Exception(f"Erreur d'exécution ExifTool : {error_msg}")
