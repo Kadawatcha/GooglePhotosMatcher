@@ -1,2 +1,4 @@
 piexif
 win32_setctime
+PIL
+PySimpleGUI
