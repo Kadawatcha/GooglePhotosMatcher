@@ -36,8 +36,13 @@ def mainProcess(browserPath, window, editedW):
 
     total_files = len(json_files)
     for index, json_path in enumerate(json_files):
-        with open(json_path, encoding="utf8") as f:  # Load JSON into a var
-            data = json.load(f)
+        try:
+            with open(json_path, encoding="utf8") as f:  # Load JSON into a var
+                data = json.load(f)
+        except Exception as e:
+            print(f"[{index + 1}/{total_files}] Error loading JSON {json_path}: {e}")
+            errorCounter += 1
+            continue
 
         progress = round((index / total_files) * 100, 2)
         window.write_event_value('-UPDATE_PROGRESS-', progress)
@@ -76,39 +81,51 @@ def mainProcess(browserPath, window, editedW):
             continue
 
         # METADATA EDITION
-        timeStamp = int(data['photoTakenTime']['timestamp'])  # Get creation time
+        try:
+            timeStamp = int(data['photoTakenTime']['timestamp'])  # Get creation time
 
-        if title.rsplit('.', 1)[1].casefold() in piexifCodecs:  # If EXIF is supported
-            try:
-                # Récupérer la description si elle existe dans le JSON
-                description = data.get('description', '')
-                set_EXIF(filepath, data['geoData']['latitude'], data['geoData']['longitude'], data['geoData']['altitude'], timeStamp, description)
+            # Extraction sécurisée des coordonnées (évite le crash si absentes du JSON)
+            geoData = data.get('geoData', {})
+            lat = geoData.get('latitude', 0.0)
+            lng = geoData.get('longitude', 0.0)
+            alt = geoData.get('altitude', 0.0)
+            description = data.get('description', '')
 
-            except Exception as e:  # Error handler
-                print("Inexistent EXIF data for " + filepath)
-                print(str(e))
-                errorCounter += 1
-                continue
+            # Extraction sécurisée de l'extension (évite le crash si pas d'extension)
+            parts = title.rsplit('.', 1)
+            ext = parts[1].casefold() if len(parts) > 1 else ""
 
-        elif title.rsplit('.', 1)[1].casefold() in videoCodecs:  # If it's a video
-            try:
-                description = data.get('description', '')
-                set_video_metadata(filepath, data['geoData']['latitude'], data['geoData']['longitude'], data['geoData']['altitude'], timeStamp, description)
+            if ext in piexifCodecs:  # If EXIF is supported
+                try:
+                    set_EXIF(filepath, lat, lng, alt, timeStamp, description)
+                except Exception as e:  # Error handler
+                    print("Inexistent EXIF data for " + filepath)
+                    print(str(e))
+                    errorCounter += 1
+                    continue
 
-            except Exception as e:  # Error handler
-                print("Error setting video metadata for " + filepath)
-                print(str(e))
-                errorCounter += 1
-                continue
+            elif ext in videoCodecs:  # If it's a video
+                try:
+                    print(f"Processing video, please wait... ({title})")
+                    set_video_metadata(filepath, lat, lng, alt, timeStamp, description)
+                except Exception as e:  # Error handler
+                    print("Error setting video metadata for " + filepath)
+                    print(str(e))
+                    errorCounter += 1
+                    continue
 
-        setWindowsTime(filepath, timeStamp) #Windows creation and modification time
+            setWindowsTime(filepath, timeStamp) #Windows creation and modification time
 
-        #MOVE FILE AND DELETE JSON
-
-        os.replace(filepath, os.path.join(fixedMediaPath, title))
-        os.remove(json_path)
-        mediaMoved[current_dir].append(title)
-        successCounter += 1
-        print(f"[{index + 1}/{total_files}] Matched successfully: {title}")
+            #MOVE FILE AND DELETE JSON
+            os.replace(filepath, os.path.join(fixedMediaPath, title))
+            os.remove(json_path)
+            mediaMoved[current_dir].append(title)
+            successCounter += 1
+            print(f"[{index + 1}/{total_files}] Matched successfully: {title}")
+            
+        except Exception as e:
+            print(f"[{index + 1}/{total_files}] Critical error processing {titleOriginal}: {str(e)}")
+            errorCounter += 1
+            continue
 
     window.write_event_value('-UPDATE_DONE-', (successCounter, errorCounter))
