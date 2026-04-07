@@ -4,6 +4,7 @@ from datetime import datetime
 import piexif
 from win32_setctime import setctime
 from fractions import Fraction
+import exiftool
 
 
 # Function to search media associated to the JSON
@@ -53,9 +54,8 @@ def searchMedia(path, title, mediaMoved, nonEdited, editedWord):
 
 # Supress incompatible characters
 def fixTitle(title):
-    return str(title).replace("%", "").replace("<", "").replace(">", "").replace("=", "").replace(":", "").replace("?","").replace(
-        "¿", "").replace("*", "").replace("#", "").replace("&", "").replace("{", "").replace("}", "").replace("\\", "").replace(
-        "@", "").replace("!", "").replace("¿", "").replace("+", "").replace("|", "").replace("\"", "").replace("\'", "")
+    bad_chars = '%<>=:?¿*#&{}\\|@!+|"\''
+    return str(title).translate(str.maketrans('', '', bad_chars))
 
 # Recursive function to search name if its repeated
 def checkIfSameName(title, titleFixed, mediaMoved, recursionTime):
@@ -106,13 +106,21 @@ def change_to_rational(number):
     return (f.numerator, f.denominator)
 
 
-def set_EXIF(filepath, lat, lng, altitude, timeStamp):
+def set_EXIF(filepath, lat, lng, altitude, timeStamp, description=""):
     exif_dict = piexif.load(filepath)
 
     dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")  # Create date object
+    
+    # Initialiser les dictionnaires s'ils n'existent pas dans l'image d'origine
+    if '0th' not in exif_dict: exif_dict['0th'] = {}
+    if 'Exif' not in exif_dict: exif_dict['Exif'] = {}
+
     exif_dict['0th'][piexif.ImageIFD.DateTime] = dateTime
     exif_dict['Exif'][piexif.ExifIFD.DateTimeOriginal] = dateTime
     exif_dict['Exif'][piexif.ExifIFD.DateTimeDigitized] = dateTime
+
+    if description:
+        exif_dict['0th'][piexif.ImageIFD.ImageDescription] = description.encode('utf-8')
 
     exif_bytes = piexif.dump(exif_dict)
     piexif.insert(exif_bytes, filepath)
@@ -145,4 +153,27 @@ def set_EXIF(filepath, lat, lng, altitude, timeStamp):
         print("Coordinates not settled")
         pass
 
+def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
+    # Formater la date pour ExifTool (YYYY:MM:DD HH:MM:SS)
+    dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")
 
+    # Préparer les balises (tags) à injecter
+    tags = {
+        "AllDates": dateTime,
+        "Keys:CreationDate": dateTime,
+        "QuickTime:CreateDate": dateTime,
+        "QuickTime:ModifyDate": dateTime
+    }
+
+    if description:
+        tags["ItemList:Title"] = description
+        tags["ItemList:Description"] = description
+
+    # Ne pas injecter de position si Google Takeout a renvoyé 0.0 par défaut
+    if lat != 0.0 or lng != 0.0:
+        tags["Keys:GPSCoordinates"] = f"{lat} {lng} {altitude}"
+        tags["UserData:GPSCoordinates"] = f"{lat} {lng} {altitude}"
+
+    # Exécuter ExifTool sans créer de copie de sauvegarde (-overwrite_original)
+    with exiftool.ExifToolHelper() as et:
+        et.set_tags([filepath], tags=tags, params=["-overwrite_original"])

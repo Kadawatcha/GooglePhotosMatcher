@@ -2,3 +2,4 @@ piexif
 win32_setctime
 Pillow
 PySimpleGUI
+PyExifTool

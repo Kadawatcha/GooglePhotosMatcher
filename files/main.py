@@ -5,6 +5,7 @@ import PySimpleGUI as sg
 
 def mainProcess(browserPath, window, editedW):
     piexifCodecs = [k.casefold() for k in ['TIF', 'TIFF', 'JPEG', 'JPG']]
+    videoCodecs = [k.casefold() for k in ['MP4', 'MOV', '3GP', 'M4V', 'MKV']]
 
     mediaMoved = []  # array with names of all the media already matched
     path = browserPath  # source path
@@ -31,8 +32,13 @@ def mainProcess(browserPath, window, editedW):
             progress = round(obj.index(entry)/len(obj)*100, 2)
             window['-PROGRESS_LABEL-'].update(str(progress) + "%", visible=True)
             window['-PROGRESS_BAR-'].update(progress, visible=True)
+            window.refresh()
 
             #SEARCH MEDIA ASSOCIATED TO JSON
+
+            # Skip system JSONs from Google Takeout that don't belong to media files
+            if 'title' not in data or 'photoTakenTime' not in data:
+                continue
 
             titleOriginal = data['title']  # Store metadata into vars
 
@@ -56,23 +62,23 @@ def mainProcess(browserPath, window, editedW):
 
             if title.rsplit('.', 1)[1].casefold() in piexifCodecs:  # If EXIF is supported
                 try:
-                    im = Image.open(filepath)
-                    im.close()
-                    rgb_im = im.convert('RGB')
-                    os.replace(filepath, filepath.rsplit('.', 1)[0] + ".jpg")
-                    filepath = filepath.rsplit('.', 1)[0] + ".jpg"
-                    rgb_im.save(filepath)
-
-                except ValueError as e:
-                    print("Error converting to JPG in " + title)
-                    errorCounter += 1
-                    continue
-
-                try:
-                    set_EXIF(filepath, data['geoData']['latitude'], data['geoData']['longitude'], data['geoData']['altitude'], timeStamp)
+                    # Récupérer la description si elle existe dans le JSON
+                    description = data.get('description', '')
+                    set_EXIF(filepath, data['geoData']['latitude'], data['geoData']['longitude'], data['geoData']['altitude'], timeStamp, description)
 
                 except Exception as e:  # Error handler
                     print("Inexistent EXIF data for " + filepath)
+                    print(str(e))
+                    errorCounter += 1
+                    continue
+
+            elif title.rsplit('.', 1)[1].casefold() in videoCodecs:  # If it's a video
+                try:
+                    description = data.get('description', '')
+                    set_video_metadata(filepath, data['geoData']['latitude'], data['geoData']['longitude'], data['geoData']['altitude'], timeStamp, description)
+
+                except Exception as e:  # Error handler
+                    print("Error setting video metadata for " + filepath)
                     print(str(e))
                     errorCounter += 1
                     continue
@@ -98,4 +104,3 @@ def mainProcess(browserPath, window, editedW):
 
     window['-PROGRESS_BAR-'].update(100, visible=True)
     window['-PROGRESS_LABEL-'].update("Matching process finishhed with " + str(successCounter) + sucessMessage + " and " + str(errorCounter) + errorMessage + ".", visible=True, text_color='#c0ffb3')
-
