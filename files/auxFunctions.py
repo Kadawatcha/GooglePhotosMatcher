@@ -174,9 +174,20 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
         tags["Keys:GPSCoordinates"] = f"{lat} {lng} {altitude}"
         tags["UserData:GPSCoordinates"] = f"{lat} {lng} {altitude}"
 
+    # Chercher exiftool.exe de manière explicite dans le dossier du script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    exiftool_path = os.path.join(script_dir, "exiftool.exe")
+    
+    if not os.path.exists(exiftool_path):
+        candidates = [f for f in os.listdir(script_dir) if f.lower().startswith("exiftool") and f.lower().endswith(".exe")]
+        if candidates:
+            exiftool_path = os.path.join(script_dir, candidates[0])
+        else:
+            exiftool_path = "exiftool" # Fallback sur la variable PATH
+
     # Exécuter ExifTool sans créer de copie de sauvegarde (-overwrite_original)
     try:
-        with exiftool.ExifToolHelper() as et:
+        with exiftool.ExifToolHelper(executable=exiftool_path) as et:
             et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
     except Exception as e:
         if "not found" in str(e).lower() or isinstance(e, FileNotFoundError):

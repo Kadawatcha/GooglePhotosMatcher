@@ -1,4 +1,5 @@
 from main import *
+import threading
 
 sg.theme("DarkTeal2")
 layout = [[sg.T("")],
@@ -21,7 +22,25 @@ while True:
     if event == sg.WIN_CLOSED or event == "Exit":
         break
     elif event == "Match":
-        mainProcess(values["-IN2-"], window, values['-INPUT_TEXT-'])
+        window['Match'].update(disabled=True)
+        window['-PROGRESS_LABEL-'].update("Starting...", visible=True, text_color='white')
+        window['-PROGRESS_BAR-'].update(0, visible=True)
+        threading.Thread(target=mainProcess, args=(values["-IN2-"], window, values['-INPUT_TEXT-']), daemon=True).start()
+    elif event == '-UPDATE_PROGRESS-':
+        progress = values[event]
+        window['-PROGRESS_LABEL-'].update(str(progress) + "%", visible=True, text_color='white')
+        window['-PROGRESS_BAR-'].update(progress, visible=True)
+    elif event == '-UPDATE_ERROR-':
+        window['-PROGRESS_LABEL-'].update(values[event], visible=True, text_color='red')
+        window['Match'].update(disabled=False)
+    elif event == '-UPDATE_DONE-':
+        successCounter, errorCounter = values[event]
+        sucessMessage = " success" if successCounter == 1 else " successes"
+        errorMessage = " error" if errorCounter == 1 else " errors"
+        window['-PROGRESS_BAR-'].update(100, visible=True)
+        msg = "Matching process finished with " + str(successCounter) + sucessMessage + " and " + str(errorCounter) + errorMessage + "."
+        window['-PROGRESS_LABEL-'].update(msg, visible=True, text_color='#c0ffb3')
+        window['Match'].update(disabled=False)
     elif event == "Help":
         sg.Popup("", "Media edited with the integrated editor of google photos "
                  "will download both the original image 'Example.jpg' and the edited version 'Example-editado.jpg'.", "",

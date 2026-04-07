@@ -21,7 +21,7 @@ def mainProcess(browserPath, window, editedW):
         obj.sort(key=lambda s: len(s.name)) #Sort by length to avoid name(1).jpg be processed before name.jpg
         createFolders(fixedMediaPath, nonEditedMediaPath)
     except Exception as e:
-        window['-PROGRESS_LABEL-'].update("Choose a valid directory", visible=True, text_color='red')
+        window.write_event_value('-UPDATE_ERROR-', "Choose a valid directory")
         return
 
     for entry in obj:
@@ -30,9 +30,7 @@ def mainProcess(browserPath, window, editedW):
                 data = json.load(f)
 
             progress = round(obj.index(entry)/len(obj)*100, 2)
-            window['-PROGRESS_LABEL-'].update(str(progress) + "%", visible=True)
-            window['-PROGRESS_BAR-'].update(progress, visible=True)
-            window.refresh()
+            window.write_event_value('-UPDATE_PROGRESS-', progress)
 
             #SEARCH MEDIA ASSOCIATED TO JSON
 
@@ -92,15 +90,4 @@ def mainProcess(browserPath, window, editedW):
             mediaMoved.append(title)
             successCounter += 1
 
-    sucessMessage = " successes"
-    errorMessage = " errors"
-
-    #UPDATE INTERFACE
-    if successCounter == 1:
-        sucessMessage = " success"
-
-    if errorCounter == 1:
-        errorMessage = " error"
-
-    window['-PROGRESS_BAR-'].update(100, visible=True)
-    window['-PROGRESS_LABEL-'].update("Matching process finishhed with " + str(successCounter) + sucessMessage + " and " + str(errorCounter) + errorMessage + ".", visible=True, text_color='#c0ffb3')
+    window.write_event_value('-UPDATE_DONE-', (successCounter, errorCounter))
