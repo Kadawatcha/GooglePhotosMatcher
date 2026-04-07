@@ -111,7 +111,7 @@ def set_EXIF(filepath, lat, lng, altitude, timeStamp, description=""):
 
     dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")  # Create date object
     
-    # Initialiser les dictionnaires s'ils n'existent pas dans l'image d'origine
+    # Initialize the dictionaries if they do not exist in the original image
     if '0th' not in exif_dict: exif_dict['0th'] = {}
     if 'Exif' not in exif_dict: exif_dict['Exif'] = {}
 
@@ -154,10 +154,10 @@ def set_EXIF(filepath, lat, lng, altitude, timeStamp, description=""):
         pass
 
 def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
-    # Formater la date pour ExifTool (YYYY:MM:DD HH:MM:SS)
+    # Format the date for ExifTool (YYYY:MM:DD HH:MM:SS)
     dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")
 
-    # Préparer les balises (tags) à injecter
+    # Prepare tags to inject
     tags = {
         "AllDates": dateTime,
         "Keys:CreationDate": dateTime,
@@ -169,12 +169,12 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
         tags["ItemList:Title"] = description
         tags["ItemList:Description"] = description
 
-    # Ne pas injecter de position si Google Takeout a renvoyé 0.0 par défaut
+    # Do not inject position if Google Takeout returned 0.0 by default
     if lat != 0.0 or lng != 0.0:
         tags["Keys:GPSCoordinates"] = f"{lat} {lng} {altitude}"
         tags["UserData:GPSCoordinates"] = f"{lat} {lng} {altitude}"
 
-    # Chercher exiftool.exe de manière explicite dans le dossier du script
+    # Explicitly search for exiftool.exe in the script folder
     script_dir = os.path.dirname(os.path.abspath(__file__))
     exiftool_path = os.path.join(script_dir, "exiftool.exe")
     
@@ -183,14 +183,14 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
         if candidates:
             exiftool_path = os.path.join(script_dir, candidates[0])
         else:
-            exiftool_path = "exiftool" # Fallback sur la variable PATH
+            exiftool_path = "exiftool" # Fallback to PATH variable
 
-    # Exécuter ExifTool sans créer de copie de sauvegarde (-overwrite_original)
+    # Execute ExifTool without creating a backup copy (-overwrite_original)
     try:
         with exiftool.ExifToolHelper(executable=exiftool_path) as et:
             et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
     except Exception as e:
         if "not found" in str(e).lower() or isinstance(e, FileNotFoundError):
-            raise Exception("ExifTool introuvable. Veuillez télécharger exiftool.exe et le placer dans le même dossier que le script.")
+            raise Exception("ExifTool not found. Please download exiftool.exe and place it in the same folder as the script.")
         else:
-            raise Exception(f"Erreur d'exécution ExifTool : {str(e)}")
+            raise Exception(f"ExifTool execution error : {str(e)}")
