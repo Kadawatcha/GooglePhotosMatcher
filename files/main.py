@@ -52,6 +52,11 @@ def mainProcess(browserPath, window, editedW):
             continue
 
         titleOriginal = data['title']  # Store metadata into vars
+        
+        # Nettoyage des extensions de métadonnées (inclut la faute de frappe)
+        for ext in ['.supplemental-metadata', '.supplemental-metada']:
+            titleOriginal: str = titleOriginal.replace(ext, '')
+
         current_dir = os.path.dirname(json_path)
         rel_dir = os.path.relpath(current_dir, browserPath)
         if rel_dir == ".":
@@ -62,7 +67,17 @@ def mainProcess(browserPath, window, editedW):
         
         os.makedirs(fixedMediaPath, exist_ok=True)
         os.makedirs(nonEditedMediaPath, exist_ok=True)
-        
+
+        # Gestion des suffixes Google Photos cachés (_PORTRAIT, _NFNR)
+        parts = titleOriginal.rsplit('.', 1)
+        if len(parts) == 2 and not os.path.exists(os.path.join(current_dir, titleOriginal)):
+            for suffix in ['_PORTRAIT', '_NFNR']:
+                candidate = f"{parts[0]}{suffix}.{parts[1]}"
+                # On vérifie si ce fichier existe dans le dossier source ou la destination
+                if os.path.exists(os.path.join(current_dir, candidate)) or os.path.exists(os.path.join(fixedMediaPath, candidate)):
+                    titleOriginal = candidate
+                    break
+
         if current_dir not in mediaMoved:
             mediaMoved[current_dir] = []
 
@@ -74,11 +89,29 @@ def mainProcess(browserPath, window, editedW):
             errorCounter += 1
             continue
 
-        filepath = os.path.join(current_dir, title)
-        if title == "None":
-            print(titleOriginal + " not found")
-            errorCounter += 1
-            continue
+        filepath = None
+        already_moved = False
+        if str(title) == "None":
+            # Fusion : Vérifier si le fichier a déjà été déplacé par un autre JSON
+            if os.path.exists(os.path.join(fixedMediaPath, titleOriginal)):
+                title = titleOriginal
+                filepath = os.path.join(fixedMediaPath, title)
+                already_moved = True
+            else:
+                parts = titleOriginal.rsplit('.', 1)
+                if len(parts) == 2:
+                    edited_title = f"{parts[0]}-{editedWord}.{parts[1]}"
+                    if os.path.exists(os.path.join(fixedMediaPath, edited_title)):
+                        title = edited_title
+                        filepath = os.path.join(fixedMediaPath, title)
+                        already_moved = True
+            
+            if not already_moved:
+                print(titleOriginal + " not found")
+                errorCounter += 1
+                continue
+        else:
+            filepath = os.path.join(current_dir, title)
 
         # METADATA EDITION
         try:
@@ -117,9 +150,11 @@ def mainProcess(browserPath, window, editedW):
             setWindowsTime(filepath, timeStamp) #Windows creation and modification time
 
             #MOVE FILE AND DELETE JSON
-            os.replace(filepath, os.path.join(fixedMediaPath, title))
+            if not already_moved:
+                os.replace(filepath, os.path.join(fixedMediaPath, title))
+                mediaMoved[current_dir].append(title)
+                
             os.remove(json_path)
-            mediaMoved[current_dir].append(title)
             successCounter += 1
             print(f"[{index + 1}/{total_files}] Matched successfully: {title}")
             
