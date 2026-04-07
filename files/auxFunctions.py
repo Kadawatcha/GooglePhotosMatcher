@@ -11,43 +11,43 @@ import exiftool
 def searchMedia(path, title, mediaMoved, nonEdited, editedWord):
     title = fixTitle(title)
     realTitle = str(title.rsplit('.', 1)[0] + "-" + editedWord + "." + title.rsplit('.', 1)[1])
-    filepath = path + "\\" + realTitle  # First we check if exists an edited version of the image
+    filepath = os.path.join(path, realTitle)  # First we check if exists an edited version of the image
     if not os.path.exists(filepath):
         realTitle = str(title.rsplit('.', 1)[0] + "(1)." + title.rsplit('.', 1)[1])
-        filepath = path + "\\" + realTitle  # First we check if exists an edited version of the image
-        if not os.path.exists(filepath) or os.path.exists(path + "\\" + title + "(1).json"):
+        filepath = os.path.join(path, realTitle)  # First we check if exists an edited version of the image
+        if not os.path.exists(filepath) or os.path.exists(os.path.join(path, title + "(1).json")):
             realTitle = title
-            filepath = path + "\\" + realTitle  # If not, check if exists the path with the same name
+            filepath = os.path.join(path, realTitle)  # If not, check if exists the path with the same name
             if not os.path.exists(filepath):
                 realTitle = checkIfSameName(title, title, mediaMoved, 1)  # If not, check if exists the path to the same name adding (1), (2), etc
-                filepath = str(path + "\\" + realTitle)
+                filepath = os.path.join(path, realTitle)
                 if not os.path.exists(filepath):
                     title = (title.rsplit('.', 1)[0])[:47] + "." + title.rsplit('.', 1)[1]  # Sometimes title is limited to 47 characters, check also that
                     realTitle = str(title.rsplit('.', 1)[0] + "-editado." + title.rsplit('.', 1)[1])
-                    filepath = path + "\\" + realTitle
+                    filepath = os.path.join(path, realTitle)
                     if not os.path.exists(filepath):
                         realTitle = str(title.rsplit('.', 1)[0] + "(1)." + title.rsplit('.', 1)[1])
-                        filepath = path + "\\" + realTitle
+                        filepath = os.path.join(path, realTitle)
                         if not os.path.exists(filepath):
                             realTitle = title
-                            filepath = path + "\\" + realTitle
+                            filepath = os.path.join(path, realTitle)
                             if not os.path.exists(filepath):
                                 realTitle = checkIfSameName(title, title, mediaMoved, 1)
-                                filepath = path + "\\" + realTitle
+                                filepath = os.path.join(path, realTitle)
                                 if not os.path.exists(filepath):  # If path not found, return null
                                     realTitle = None
                         else:
-                            filepath = path + "\\" + title  # Move original media to another folder
-                            os.replace(filepath, nonEdited + "\\" + title)
+                            filepath = os.path.join(path, title)  # Move original media to another folder
+                            os.replace(filepath, os.path.join(nonEdited, title))
                     else:
-                        filepath = path + "\\" + title  # Move original media to another folder
-                        os.replace(filepath, nonEdited + "\\" + title)
+                        filepath = os.path.join(path, title)  # Move original media to another folder
+                        os.replace(filepath, os.path.join(nonEdited, title))
         else:
-            filepath = path + "\\" + title  # Move original media to another folder
-            os.replace(filepath, nonEdited + "\\" + title)
+            filepath = os.path.join(path, title)  # Move original media to another folder
+            os.replace(filepath, os.path.join(nonEdited, title))
     else:
-        filepath = path + "\\" + title  # Move original media to another folder
-        os.replace(filepath, nonEdited + "\\" + title)
+        filepath = os.path.join(path, title)  # Move original media to another folder
+        os.replace(filepath, os.path.join(nonEdited, title))
 
     return str(realTitle)
 
@@ -175,5 +175,11 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
         tags["UserData:GPSCoordinates"] = f"{lat} {lng} {altitude}"
 
     # Exécuter ExifTool sans créer de copie de sauvegarde (-overwrite_original)
-    with exiftool.ExifToolHelper() as et:
-        et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
+    try:
+        with exiftool.ExifToolHelper() as et:
+            et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
+    except Exception as e:
+        if "not found" in str(e).lower() or isinstance(e, FileNotFoundError):
+            raise Exception("ExifTool introuvable. Veuillez télécharger exiftool.exe et le placer dans le même dossier que le script.")
+        else:
+            raise Exception(f"Erreur d'exécution ExifTool : {str(e)}")

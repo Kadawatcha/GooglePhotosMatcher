@@ -9,8 +9,8 @@ def mainProcess(browserPath, window, editedW):
 
     mediaMoved = []  # array with names of all the media already matched
     path = browserPath  # source path
-    fixedMediaPath = path + "\MatchedMedia"  # destination path
-    nonEditedMediaPath = path + "\EditedRaw"
+    fixedMediaPath = os.path.join(path, "MatchedMedia")  # destination path
+    nonEditedMediaPath = os.path.join(path, "EditedRaw")
     errorCounter = 0
     successCounter = 0
     editedWord = editedW or "editado"
@@ -50,7 +50,7 @@ def mainProcess(browserPath, window, editedW):
                 errorCounter += 1
                 continue
 
-            filepath = path + "\\" + title
+            filepath = os.path.join(path, title)
             if title == "None":
                 print(titleOriginal + " not found")
                 errorCounter += 1
@@ -87,8 +87,8 @@ def mainProcess(browserPath, window, editedW):
 
             #MOVE FILE AND DELETE JSON
 
-            os.replace(filepath, fixedMediaPath + "\\" + title)
-            os.remove(path + "\\" + entry.name)
+            os.replace(filepath, os.path.join(fixedMediaPath, title))
+            os.remove(os.path.join(path, entry.name))
             mediaMoved.append(title)
             successCounter += 1
 
