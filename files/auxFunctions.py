@@ -15,8 +15,7 @@ from fractions import Fraction
 # Rename 'exiftool(-k).exe' to 'exiftool.exe'
 # Run the following command in your terminal from the project root:
 #
-# pyinstaller --noconsole --onefile --icon=assets/photos.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photos.ico;assets" --paths files files/window.py
-
+# pyinstaller --noconsole --onefile --icon=assets/photos.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photos.ico;." --paths files files/window.py
 # DEV : Create .exe file with integrated exiftool 
 def resource_path(relative_path: str) -> str:
     """ Finds the actual path to the resource file for PyInstaller (_MEIPASS) """
@@ -27,9 +26,16 @@ def resource_path(relative_path: str) -> str:
     return os.path.join(base_path, relative_path)
 
 def get_exiftool_path() -> str:
-    """ Retrieves the path for the ExifTool binary bundled within the EXE """
-    exiftool_exe = resource_path("exiftool.exe")
-    # quick check
+    """ Retrieves the path for the ExifTool binary """
+    if hasattr(sys, 'frozen'):
+        # in .exe
+        base_path = os.path.dirname(sys.executable)
+    else:
+        # in py
+        base_path = os.path.abspath(".")
+        
+    exiftool_exe = os.path.join(base_path, "exiftool.exe")
+    
     if not os.path.isfile(exiftool_exe):
         print(f"\n[CRITICAL ERROR] ExifTool not found at: {exiftool_exe}")
         sys.exit(1)
