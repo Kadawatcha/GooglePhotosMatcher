@@ -15,7 +15,7 @@ from fractions import Fraction
 # Rename 'exiftool(-k).exe' to 'exiftool.exe'
 # Run the following command in your terminal from the project root:
 #
-# pyinstaller --noconsole --onefile --icon=assets/photos.ico --name "GPMatcher" --add-data "exiftool.exe;." --add-data "assets/photos.ico;." --paths files files/window.py
+# pyinstaller --noconsole --onefile --icon=assets/photos.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photos.ico;." --paths files files/window.py
 
 # DEV : Create .exe file with integrated exiftool 
 def resource_path(relative_path: str) -> str:
