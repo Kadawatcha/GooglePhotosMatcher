@@ -1,15 +1,15 @@
-# Note to futures dev / for actuals devs :
+# Note to future / current devs:
 
-For alls this step lower you need to :
+For all the steps below, you need to:
 
-**Create a virtual environement at the root of the project `python -m venv venv`**
+**Create a virtual environment at the root of the project: `python -m venv venv`**
 
 
-## DEVELOPER NOTE: generate the final .exe 
+## DEVELOPER NOTE: Generate the final .exe 
 
-1) Execute `pip install -r "requirements-dev.txt"` for have the libs to create the .exe file
+1) Execute `pip install -r "requirements-dev.txt"` to install the libraries required to create the .exe file
 
-2) Download exiftool from https://exiftool.org/ [this link](https://sourceforge.net/projects/exiftool/files/exiftool-13.55_64.zip/download) for the 64bits version
+2) Download exiftool from https://exiftool.org/ [this link](https://sourceforge.net/projects/exiftool/files/exiftool-13.55_64.zip/download) for the 64bits version direct download
 
 3) Rename 'exiftool(-k).exe' to 'exiftool.exe'
 
@@ -19,20 +19,17 @@ For alls this step lower you need to :
 
 ```pyinstaller --noconsole --onefile --icon=assets/photos.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photos.ico;." --paths files files/window.py```
 
-And the 'GPMatcher.exe' file is ready ! Go in your file explorer and you can open to match your photos / videos
+The 'GPMatcher.exe' file is now ready ! You can open it from your file explorer to start matching your photos and videos !
 
-## DEVELOPER NOTE: Python version no .exe file
+---
 
-*you can also run the app without .exe file, steps to do it:*
+## DEVELOPER NOTE: Python version (no .exe file)
+
+*You can also run the app without the .exe file. Here are the steps:*
  
 
-1) execute `pip install -r "requirements.txt"` for basic use : match photos...
+1) Execute `pip install -r "requirements.txt"` for basic usage (e.g., matching photos)
 
-2) run the file 'window.py' 
+2) Run the file 'window.py'
 
-3) Go match your photos !
-
-
-
-
-
+3) Go match your photos!
