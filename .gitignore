@@ -9,3 +9,5 @@ files/exiftool_files/
 files/dist*
 files/build*
 files/GPMatcher.spec
+
+files/README.txt # exiftool readme 
