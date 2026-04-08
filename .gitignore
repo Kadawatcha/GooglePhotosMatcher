@@ -6,7 +6,6 @@ files/exiftool.exe
 files/exiftool_files/
 
 # dev : create .exe file 
-dist*
 build*
 GPMatcher.spec
 
