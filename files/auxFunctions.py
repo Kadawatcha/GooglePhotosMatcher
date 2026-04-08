@@ -157,7 +157,7 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
     # Format the date for ExifTool (YYYY:MM:DD HH:MM:SS)
     dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")
 
-    # Prepare tags to inject
+    # dictionnary for the datas to inject 
     tags = {
         "AllDates": dateTime,
         "Keys:CreationDate": dateTime,
