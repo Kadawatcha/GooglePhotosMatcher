@@ -6,6 +6,7 @@ from win32_setctime import setctime
 from fractions import Fraction
 import exiftool
 import sys 
+from fractions import Fraction
 
 # Function to search media associated to the JSON
 def searchMedia(path, title, mediaMoved, nonEdited, editedWord):
@@ -157,72 +158,85 @@ def set_EXIF(filepath, lat, lng, altitude, timeStamp, description=""):
         print("Coordinates not settled")
         pass
 
-
-# Only for the videos metadatas 
 def get_exiftool_path():
     """
-    Stops the program if ExifTool files are not correctly placed 
-    inside the 'files' subdirectory.
+    Locates ExifTool and handles the automatic renaming of the (-k) version.
+    Ensures the 'files' directory structure is respected.
     """
-    
-    # Get the directory where this script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # define mandatory paths
     exiftool_exe = os.path.join(script_dir, "exiftool.exe")
     exiftool_lib = os.path.join(script_dir, "exiftool_files")
     
-    # Particularity of exitfool : if we want he works we need to rename it
-    # So for more user friendly experience we rename authomaticaly the file 
-    exiftoo_to_formate = os.path.join(script_dir, "exiftool(-k).exe")
-    if os.path.exists(exiftoo_to_formate):
-        os.rename(exiftoo_to_formate, exiftool_exe)
+    # Auto-rename the '(-k)' version if found
+    exiftool_to_format = os.path.join(script_dir, "exiftool(-k).exe")
+    if os.path.exists(exiftool_to_format):
+        try:
+            os.rename(exiftool_to_format, exiftool_exe)
+        except Exception as e:
+            print(f"Warning: Could not rename exiftool(-k).exe: {e}")
 
-
-    # 3. Strict validation: Check for BOTH the executable and the folder
-    # If one is missing, we display an error and kill the process
+    # Strict validation
     if not os.path.isfile(exiftool_exe) or not os.path.isdir(exiftool_lib):
-        print("\n[ERROR]")
-        print("Missing dependencies in the 'files' directory!")
-        print(f"Please ensure 'exiftool.exe' or 'exiftool(-k).exe' and 'exiftool_files/' are present in: {script_dir}")
-        
-        # Stop execution immediately
+        print("\n[CRITICAL ERROR] Missing dependencies in the 'files' directory!")
+        print(f"Ensure 'exiftool.exe' and 'exiftool_files/' are in: {script_dir}")
         sys.exit(1)
 
-    # Return to use in the function below (set_video_metadata)
     return exiftool_exe
 
-def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
-    # Format the date for ExifTool (YYYY:MM:DD HH:MM:SS)
+def set_metadata_optimal(filepath, lat, lng, altitude, timeStamp, description="", camera_make="", camera_model="", author="", software=""):
+    """
+    Injects all possible metadata using ExifTool for an optimal transfer
+    """
+    # Format the date (YYYY:MM:DD HH:MM:SS)
     dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")
 
-    # dictionnary for the datas to inject 
+    # All the datas to transfer
     tags = {
-        "AllDates": dateTime,
-        "Keys:CreationDate": dateTime,
-        "QuickTime:CreateDate": dateTime,
-        "QuickTime:ModifyDate": dateTime,
+        # Date and Time
+        "AllDates": dateTime,            # Sets DateTimeOriginal, CreateDate, and ModifyDate
+        "Keys:CreationDate": dateTime,   # Essential for Apple/QuickTime
         
+        # Device and author
+        "Artist": author,                # Who took the photo (Standard EXIF)
+        "Author": author,                # XMP version
+        "Make": camera_make,             # Device Manufacturer (e.g., Apple, Samsung)
+        "Model": camera_model,           # Device Model (e.g., iPhone 15)
+        
+        # Inject to the metadatas that is GPM who had edited and linked the medias 
+        # Optional ; )
+        # "Software": "GooglePhotosMatcher", 
+        # It is defined lower 
     }
 
+    # Description and Title
     if description:
-        tags["ItemList:Title"] = description
+        tags["Description"] = description
+        tags["ImageDescription"] = description
         tags["ItemList:Description"] = description
+        tags["Title"] = description
+        tags["ItemList:Title"] = description
 
-    # Do not inject position if Google Takeout returned 0.0 by default
+    # Location of the video
     if lat != 0.0 or lng != 0.0:
+        # Standard GPS Tags
+        tags["GPSLatitude"] = lat
+        tags["GPSLongitude"] = lng
+        tags["GPSAltitude"] = altitude
+        # Video-specific location tags (QuickTime/Keys)
         tags["Keys:GPSCoordinates"] = f"{lat} {lng} {altitude}"
         tags["UserData:GPSCoordinates"] = f"{lat} {lng} {altitude}"
+        
+    
+    if software:
+        # Adobe, Capcut...
+        tags["Software"] = software
 
-    # Get the verified path to exiftool
+
     exiftool_path = get_exiftool_path()
-    # Execute ExifTool without creating a backup copy (-overwrite_original).
-    # This saves storage space, assuming the user has the original Google Takeout ZIP file as a backup
+    
     try:
         with exiftool.ExifToolHelper(executable=exiftool_path) as et:
+            # -overwrite_original: saves space by not creating backup files
             et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
     except Exception as e:
-        if "not found" in str(e).lower() or isinstance(e, FileNotFoundError):
-            raise Exception("ExifTool not found") # TODO : better message to explain the missing file 
-        else:
-            raise Exception(f"ExifTool execution error : {str(e)}")
+        print(f"Error applying metadata to {filepath}: {e}")
