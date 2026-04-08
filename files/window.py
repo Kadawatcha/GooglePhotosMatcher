@@ -25,7 +25,7 @@ layout = [
 
 window = sg.Window('Google Photos Matcher',
                    layout, 
-                   icon=resource_path("photos.ico"), # use the correct path to the icon of the window
+                   icon=resource_path("assets/photos.ico"), # use the correct path to the icon of the window
                    finalize=True,)
 
 while True:
@@ -73,6 +73,6 @@ while True:
                  "Example (Spain): 'editado'\n"
                  "Example (France): 'modifié'\n\n"
                  "If left blank, 'editado' is used by default.", 
-                 icon='photos.ico')
+                 icon=resource_path("assets/photos.ico"))
 
 window.close()
