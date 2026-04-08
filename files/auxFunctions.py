@@ -9,16 +9,6 @@ from win32_setctime import setctime
 from fractions import Fraction
 
 
-
-# DEVELOPER NOTE: generate the final .exe file
-
-# Rename 'exiftool(-k).exe' to 'exiftool.exe'
-# Run the following command in your terminal from the project root:
-#
-# pyinstaller --noconsole --onefile --icon=assets/photos.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photos.ico;." --paths files files/window.py
-
-# And the .exe file is ready !
-
 def resource_path(relative_path: str) -> str:
     """ Finds the actual path to the resource file for PyInstaller (_MEIPASS) """
     try:
