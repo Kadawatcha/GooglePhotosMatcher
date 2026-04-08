@@ -186,7 +186,7 @@ def get_exiftool_path():
         # Stop execution immediately
         sys.exit(1)
 
-    # Success: Return the verified path
+    # Return to use in the function below (set_video_metadata)
     return exiftool_exe
 
 def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
