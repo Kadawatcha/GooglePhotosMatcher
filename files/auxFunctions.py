@@ -186,6 +186,8 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
             exiftool_path = "exiftool" # Fallback to PATH variable
 
     # Execute ExifTool without creating a backup copy (-overwrite_original)
+    # I think it's better because with Google Takeout the User have a .ZIP file
+    # So it's a backup and we don't need to create more space (storage)
     try:
         with exiftool.ExifToolHelper(executable=exiftool_path) as et:
             et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
