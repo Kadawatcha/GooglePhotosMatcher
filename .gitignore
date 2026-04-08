@@ -12,6 +12,6 @@ GPMatcher.spec
 
 # exiftool readme 
 files/README.txt 
-
+# exitool files 
 exiftool.exe
 exiftool_files/
