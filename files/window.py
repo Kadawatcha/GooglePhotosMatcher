@@ -3,6 +3,7 @@ import PySimpleGUI as sg
 from main import mainProcess
 import ctypes
 from auxFunctions import resource_path
+import os
 
 # High definition of the window (very very very better UI )
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -22,10 +23,14 @@ layout = [
     [sg.ProgressBar(100, visible=False, orientation='h', border_width=4, key='-PROGRESS_BAR-')],
     [sg.T("", key='-PROGRESS_LABEL-', size=(50, 1))]
 ]
+# serch logo (for compatibility windows and python)
+icon_path = resource_path("assets/photos.ico")
+if not os.path.exists(icon_path):
+    icon_path = resource_path("photos.ico")
 
 window = sg.Window('Google Photos Matcher',
                    layout, 
-                   icon=resource_path("assets/photos.ico"), # use the correct path to the icon of the window
+                   icon=icon_path, 
                    finalize=True,)
 
 while True:
