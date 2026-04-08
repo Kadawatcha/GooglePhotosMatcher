@@ -14,19 +14,17 @@ This algorithm is able to match this information in the image/video from the dow
 
 1. Download your _Google Photos_ media from [Takeout](https://takeout.google.com/)
 
-2. Download [Exiftool](https://exiftool.org/) direct link to download it : [click here](https://sourceforge.net/projects/exiftool/files/exiftool-13.55_64.zip/download) extract it in the "file" folder
+2. Download and execute GPMatcher.exe
 
-3. Download and execute GPMatcher.exe
+3. [Optional] Type custom suffix used for edited photos (explained in the program)
 
-4. [Optional] Type custom suffix used for edited photos (explained in the program)
-
-5. Select the folder in which images/videos along with its JSONs were downloaded ('Photos from 2022' or 'Takeout' for example)
+4. Select the folder in which images/videos along with its JSONs were downloaded ('Photos from 2022' or 'Takeout' for example)
 
 *Note : The script will automatically search for subfolders to convert all files*
 
-6. Click on _Match_ button
+5. Click on _Match_ button
 
-7. Matched images/videos will be on directory _Matched_ inside the same path
+6. Matched images/videos will be on directory _Matched_ inside the same path
 
 ## FAQs
 
