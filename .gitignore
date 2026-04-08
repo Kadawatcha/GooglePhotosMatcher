@@ -2,3 +2,5 @@
 *.pyc
 *.xml
 .venv
+files/exiftool.exe
+files/exiftool_files/
