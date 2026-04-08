@@ -22,7 +22,10 @@ layout = [
     [sg.T("", key='-PROGRESS_LABEL-', size=(50, 1))]
 ]
 
-window = sg.Window('Google Photos Matcher', layout, icon='files/photos.ico', finalize=True)
+window = sg.Window('Google Photos Matcher',
+                   layout, 
+                   icon='files/photos.ico', 
+                   finalize=True,)
 
 while True:
     event, values = window.read()
