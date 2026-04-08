@@ -6,8 +6,8 @@ files/exiftool.exe
 files/exiftool_files/
 
 # dev : create .exe file 
-files/dist*
-files/build*
+dist*
+build*
 GPMatcher.spec
 
 # exiftool readme 
