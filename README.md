@@ -14,7 +14,7 @@ This algorithm is able to match this information in the image/video from the dow
 
 1. Download your _Google Photos_ media from [Takeout](https://takeout.google.com/)
 
-2. Download and execute GPMatcher.exe
+2. Download and execute GPMatcher.exe (No installation, Python, or additional libraries required. The EXE is fully standalone)
 
 3. [Optional] Type custom suffix used for edited photos (explained in the program)
 
