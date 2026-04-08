@@ -185,14 +185,13 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
         else:
             exiftool_path = "exiftool" # Fallback to PATH variable
 
-    # Execute ExifTool without creating a backup copy (-overwrite_original)
-    # I think it's better because with Google Takeout the User have a .ZIP file
-    # So it's a backup and we don't need to create more space (storage)
+    # Execute ExifTool without creating a backup copy (-overwrite_original).
+    # This saves storage space, assuming the user has the original Google Takeout ZIP file as a backup
     try:
         with exiftool.ExifToolHelper(executable=exiftool_path) as et:
             et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
     except Exception as e:
         if "not found" in str(e).lower() or isinstance(e, FileNotFoundError):
-            raise Exception("ExifTool not found. Please download exiftool.exe and place it in the same folder as the script.")
+            raise Exception("ExifTool not found") # TODO : better message to explain the missing file 
         else:
             raise Exception(f"ExifTool execution error : {str(e)}")
