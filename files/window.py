@@ -2,6 +2,7 @@ import threading
 import PySimpleGUI as sg
 from main import mainProcess
 import ctypes
+from auxFunctions import resource_path
 
 # High definition of the window (very very very better UI )
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -24,7 +25,7 @@ layout = [
 
 window = sg.Window('Google Photos Matcher',
                    layout, 
-                   icon='files/photos.ico', 
+                   icon=resource_path("photos.ico"), # use the correct path to the icon of the window
                    finalize=True,)
 
 while True:
