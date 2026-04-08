@@ -1,65 +1,64 @@
-from auxFunctions import *
+import os
 import json
-from PIL import Image
 import PySimpleGUI as sg
+from auxFunctions import *
 
 def mainProcess(browserPath, window, editedW):
-    piexifCodecs = [k.casefold() for k in ['TIF', 'TIFF', 'JPEG', 'JPG']]
+    # Supported extensions
+    piexifCodecs = [k.casefold() for k in ['TIF', 'TIFF', 'JPEG', 'JPG']] #TODO: PNG ?
     videoCodecs = [k.casefold() for k in ['MP4', 'MOV', '3GP', 'M4V', 'MKV']]
 
-    mediaMoved = {}  # dict to keep track of media moved per directory
+    mediaMoved: dict[str, list[str]] = {}
     root_fixed = os.path.join(browserPath, "MatchedMedia")
     root_nonEdited = os.path.join(browserPath, "EditedRaw")
+    
     errorCounter = 0
     successCounter = 0
     editedWord = editedW or "editado"
-    print(editedWord)
 
     try:
         json_files = []
         for root, dirs, files in os.walk(browserPath):
-            # Prevent os.walk from entering the destination folders
+            # Exclude output folders from search
             dirs[:] = [d for d in dirs if os.path.join(root, d) not in (root_fixed, root_nonEdited)]
-            
+            file: str = "" 
             for file in files:
                 if file.endswith(".json"):
                     json_files.append(os.path.join(root, file))
-                    
-        json_files.sort(key=lambda s: len(os.path.basename(s))) #Sort by length to avoid name(1).jpg be processed before name.jpg
+        
+        # Sort by filename length to process originals before duplicates
+        json_files.sort(key=lambda s: len(os.path.basename(s)))
     except Exception as e:
-        window.write_event_value('-UPDATE_ERROR-', "Choose a valid directory")
+        window.write_event_value('-UPDATE_ERROR-', "Invalid directory selected")
         return
 
     if not json_files:
-        window.write_event_value('-UPDATE_ERROR-', "No JSON files found in this directory")
+        window.write_event_value('-UPDATE_ERROR-', "No JSON files found")
         return
 
     total_files = len(json_files)
     for index, json_path in enumerate(json_files):
         try:
-            with open(json_path, encoding="utf8") as f:  # Load JSON into a var
+            with open(json_path, encoding="utf8") as f:
                 data = json.load(f)
-        except Exception as e:
-            print(f"[{index + 1}/{total_files}] Error loading JSON {json_path}: {e}")
+        except Exception:
             errorCounter += 1
             continue
 
-        progress = round((index / total_files) * 100, 2)
+        progress = round(((index + 1) / total_files) * 100, 2)
         window.write_event_value('-UPDATE_PROGRESS-', progress)
 
-        # Skip system JSONs from Google Takeout that don't belong to media files
         if 'title' not in data or 'photoTakenTime' not in data:
             continue
 
-        titleOriginal = data['title']  # Store metadata into vars
-        # clean json name 
+        titleOriginal:str = data['title']
+        # Clean supplemental metadata suffixes
         for ext in ['.supplemental-metadata', '.supplemental-metada']:
-            titleOriginal: str = titleOriginal.replace(ext, '')
+            titleOriginal = titleOriginal.replace(ext, '')
 
         current_dir = os.path.dirname(json_path)
         rel_dir = os.path.relpath(current_dir, browserPath)
-        if rel_dir == ".":
-            rel_dir = ""
+        if rel_dir == ".": rel_dir = ""
             
         fixedMediaPath = os.path.join(root_fixed, rel_dir)
         nonEditedMediaPath = os.path.join(root_nonEdited, rel_dir)
@@ -67,15 +66,12 @@ def mainProcess(browserPath, window, editedW):
         os.makedirs(fixedMediaPath, exist_ok=True)
         os.makedirs(nonEditedMediaPath, exist_ok=True)
 
-        # Management of hidden Google Photos suffixes (_PORTRAIT, _MFNR, etc.)
+        # Handle Google Photos hidden suffixes
         parts = titleOriginal.rsplit('.', 1)
         base_candidates = [titleOriginal]
         if len(parts) == 2:
-            # 1. Try to add the suffix if the photo has it, but not the JSON
             for suffix in ['_PORTRAIT', 'PORTRAIT', '_NFNR', '_MFNR']:
                 base_candidates.append(f"{parts[0]}{suffix}.{parts[1]}")
-            
-            # 2. Try to remove the suffix if the JSON has it, but not the photo
             for suffix in ['_PORTRAIT', 'PORTRAIT', '_NFNR', '_MFNR']:
                 if parts[0].endswith(suffix):
                     base_candidates.append(f"{parts[0][:-len(suffix)]}.{parts[1]}")
@@ -84,93 +80,85 @@ def mainProcess(browserPath, window, editedW):
             mediaMoved[current_dir] = []
 
         title = "None"
-        try:
-            for candidate_title in base_candidates:
-                title = searchMedia(current_dir, candidate_title, mediaMoved[current_dir], nonEditedMediaPath, editedWord)
-                if str(title) != "None":
-                    titleOriginal = candidate_title
-                    break
-        except Exception as e:
-            print("Error on searchMedia() with file " + titleOriginal)
-            errorCounter += 1
-            continue
+        for candidate in base_candidates:
+            title = searchMedia(current_dir, candidate, mediaMoved[current_dir], nonEditedMediaPath, editedWord)
+            if str(title) != "None":
+                titleOriginal = candidate
+                break
 
         filepath = None
         already_moved = False
+        
         if str(title) == "None":
-            # Merge: Check if the file has already been moved by another JSON
-            for candidate_title in base_candidates:
-                if os.path.exists(os.path.join(fixedMediaPath, candidate_title)):
-                    titleOriginal = candidate_title
-                    title = candidate_title
+            # Check if already moved
+            for cand in base_candidates:
+                if os.path.exists(os.path.join(fixedMediaPath, cand)):
+                    title = cand
                     filepath = os.path.join(fixedMediaPath, title)
                     already_moved = True
                     break
-                else:
-                    cand_parts = candidate_title.rsplit('.', 1)
-                    if len(cand_parts) == 2:
-                        edited_title = f"{cand_parts[0]}-{editedWord}.{cand_parts[1]}"
-                        if os.path.exists(os.path.join(fixedMediaPath, edited_title)):
-                            titleOriginal = candidate_title
-                            title = edited_title
-                            filepath = os.path.join(fixedMediaPath, title)
-                            already_moved = True
-                            break
-            
             if not already_moved:
-                print(titleOriginal + " not found")
                 errorCounter += 1
                 continue
         else:
             filepath = os.path.join(current_dir, title)
 
-        # METADATA EDITION
+        
         try:
-            timeStamp = int(data['photoTakenTime']['timestamp'])  # Get creation time
-
-            # Secure coordinate extraction (avoids crash if missing from JSON)
-            geoData = data.get('geoData', {})
-            lat = geoData.get('latitude', 0.0)
-            lng = geoData.get('longitude', 0.0)
-            alt = geoData.get('altitude', 0.0)
+            # set data to dict for IDE and the method .get 
+            data: dict = data 
+            
+            photo_info: dict = data.get('photoTakenTime', {})
+            
+            timeStamp = int(photo_info.get('timestamp', 0))
+         
+            # Location of the photo
+            geoData: dict = data.get('geoData', {})
+            lat = float(geoData.get('latitude', 0.0))
+            lng = float(geoData.get('longitude', 0.0))
+            alt = float(geoData.get('altitude', 0.0))
+            
             description = data.get('description', '')
 
-            # Secure extension extraction (avoids crash if no extension)
-            parts = title.rsplit('.', 1)
-            ext = parts[1].casefold() if len(parts) > 1 else ""
+            origin = data.get('googlePhotosOrigin', {})
+            
+            # Check if it if a dict for Type Hinting (more particulary .get)
+            if isinstance(origin, dict):
+                mobile = origin.get('mobileUpload', {})
+                if isinstance(mobile, dict):
+                    folder = mobile.get('deviceFolder', {})
+                    if isinstance(folder, dict):
+                        camera_make = folder.get('localFolderName', '')
+                    else:
+                        camera_make = ""
+                else:
+                    camera_make = ""
+            else:
+                camera_make = ""
+           
+            camera_model = "" 
+            software = "" 
 
-            if ext in piexifCodecs:  # If EXIF is supported
-                try:
-                    set_EXIF(filepath, lat, lng, alt, timeStamp, description)
-                except Exception as e:  # Error handler
-                    print("Inexistent EXIF data for " + filepath)
-                    print(str(e))
-                    errorCounter += 1
-                    continue
+            ext = title.rsplit('.', 1)[1].casefold() if '.' in title else ""
 
-            elif ext in videoCodecs:  # If it's a video
-                try:
-                    print(f"Processing video, please wait... ({title})")
-                    set_video_metadata(filepath, lat, lng, alt, timeStamp, description)
-                except Exception as e:  # Error handler
-                    print("Error setting video metadata for " + filepath)
-                    print(str(e))
-                    errorCounter += 1
-                    continue
 
-            setWindowsTime(filepath, timeStamp) #Windows creation and modification time
+            # Set metadatas
+            if ext in piexifCodecs:
+                set_photo_metadata(filepath, lat, lng, alt, timeStamp, description)
+            elif ext in videoCodecs:
+                set_video_metadata(filepath, lat, lng, alt, timeStamp, description, camera_make, camera_model, "", software)
 
-            #MOVE FILE AND DELETE JSON
+            setWindowsTime(filepath, timeStamp)
+
             if not already_moved:
                 os.replace(filepath, os.path.join(fixedMediaPath, title))
                 mediaMoved[current_dir].append(title)
                 
             os.remove(json_path)
             successCounter += 1
-            print(f"[{index + 1}/{total_files}] Matched successfully: {title}")
             
         except Exception as e:
-            print(f"[{index + 1}/{total_files}] Critical error processing {titleOriginal}: {str(e)}")
+            print(f"Error processing {title}: {e}")
             errorCounter += 1
             continue
 
