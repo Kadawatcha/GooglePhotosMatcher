@@ -8,6 +8,37 @@ from datetime import datetime
 from win32_setctime import setctime
 from fractions import Fraction
 
+
+
+# DEVELOPER NOTE: generate the final .exe file
+
+# Rename 'exiftool(-k).exe' to 'exiftool.exe'
+# Run the following command in your terminal from the project root:
+#
+# pyinstaller --noconsole --onefile --icon=files/photos.ico --add-data "exiftool.exe;." --add-data "exiftool_files;exiftool_files" --add-data "files/photos.ico;." window.py
+
+# DEV : Create .exe file with integrated exiftool 
+def resource_path(relative_path: str) -> str:
+    """ Finds the actual path to the resource file for PyInstaller (_MEIPASS) """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+def get_exiftool_path() -> str:
+    """ Retrieves the path for the ExifTool binary bundled within the EXE """
+    exiftool_exe = resource_path("exiftool.exe")
+    # quick check
+    if not os.path.isfile(exiftool_exe):
+        print(f"\n[CRITICAL ERROR] ExifTool not found at: {exiftool_exe}")
+        sys.exit(1)
+        
+    return exiftool_exe
+
+
+
+
 # MEDIA SEARCH & UTILS
 def searchMedia(path, title, mediaMoved, nonEdited, editedWord):
     """Searches for the media file associated with a JSON metadata file."""
@@ -139,30 +170,6 @@ def set_photo_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
 
     exif_bytes = piexif.dump(exif_dict)
     piexif.insert(exif_bytes, filepath)
-
-# VIDEO METADATA (EXIFTOOL)
-def get_exiftool_path():
-    """Locates ExifTool and handles automatic renaming of 'exiftool(-k).exe' for better UI experience"""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    exiftool_exe = os.path.join(script_dir, "exiftool.exe")
-    exiftool_lib = os.path.join(script_dir, "exiftool_files")
-    
-    # Handle the (-k) version renaming for easier setup (else exiftool crash)
-    exiftool_to_format = os.path.join(script_dir, "exiftool(-k).exe")
-    if os.path.exists(exiftool_to_format):
-        try:
-            os.rename(exiftool_to_format, exiftool_exe)
-        except Exception:
-            pass # hmm idk becanse exiftool can't work whithout this rename 
-
-
-    # Exiftool work only in the folder "files" so in the same folder of the main file (window.py)
-    if not os.path.isfile(exiftool_exe) or not os.path.isdir(exiftool_lib):
-        print("\n[CRITICAL ERROR] Missing ExifTool dependencies!")
-        print(f"Ensure 'exiftool.exe' (or 'exiftool(-k).exe' and 'exiftool_files/' are in: {script_dir}")
-        sys.exit(1)
-
-    return exiftool_exe
 
 def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description="", camera_make="", camera_model="", author="", software=""):
     """Injects metadata into video files using ExifTool"""
