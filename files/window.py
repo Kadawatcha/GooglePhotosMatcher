@@ -1,6 +1,10 @@
 import threading
 import PySimpleGUI as sg
 from main import mainProcess
+import ctypes
+
+# High definition of the window (very very very better UI )
+ctypes.windll.shcore.SetProcessDpiAwareness(1)
 
 sg.theme("DarkTeal2")
 
