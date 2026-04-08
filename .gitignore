@@ -2,3 +2,10 @@
 *.pyc
 *.xml
 .venv
+files/exiftool.exe
+files/exiftool_files/
+
+# dev : create .exe file 
+files/dist*
+files/build*
+files/GPMatcher.spec

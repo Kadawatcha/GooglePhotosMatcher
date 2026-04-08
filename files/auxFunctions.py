@@ -1,88 +1,114 @@
 import os
+import sys
 import time
-from datetime import datetime
+import json
 import piexif
+import exiftool
+from datetime import datetime
 from win32_setctime import setctime
 from fractions import Fraction
-import exiftool
 
 
-# Function to search media associated to the JSON
+
+# DEVELOPER NOTE: generate the final .exe file
+
+# Rename 'exiftool(-k).exe' to 'exiftool.exe'
+# Run the following command in your terminal from the project root:
+#
+# pyinstaller --noconsole --onefile --icon=photos.ico --name "GPMatcher" --add-data "exiftool.exe;." --add-data "exiftool_files;exiftool_files" --add-data "photos.ico;." window.py
+
+# DEV : Create .exe file with integrated exiftool 
+def resource_path(relative_path: str) -> str:
+    """ Finds the actual path to the resource file for PyInstaller (_MEIPASS) """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+def get_exiftool_path() -> str:
+    """ Retrieves the path for the ExifTool binary bundled within the EXE """
+    exiftool_exe = resource_path("exiftool.exe")
+    # quick check
+    if not os.path.isfile(exiftool_exe):
+        print(f"\n[CRITICAL ERROR] ExifTool not found at: {exiftool_exe}")
+        sys.exit(1)
+        
+    return exiftool_exe
+
+
+
+
+# MEDIA SEARCH & UTILS
 def searchMedia(path, title, mediaMoved, nonEdited, editedWord):
+    """Searches for the media file associated with a JSON metadata file."""
     title = fixTitle(title)
+    # Check for edited version
     realTitle = str(title.rsplit('.', 1)[0] + "-" + editedWord + "." + title.rsplit('.', 1)[1])
-    filepath = os.path.join(path, realTitle)  # First we check if exists an edited version of the image
+    filepath = os.path.join(path, realTitle)
+    
     if not os.path.exists(filepath):
+        # Check for (1) suffix version
         realTitle = str(title.rsplit('.', 1)[0] + "(1)." + title.rsplit('.', 1)[1])
-        filepath = os.path.join(path, realTitle)  # First we check if exists an edited version of the image
+        filepath = os.path.join(path, realTitle)
+        
         if not os.path.exists(filepath) or os.path.exists(os.path.join(path, title + "(1).json")):
+            # Check for exact title match
             realTitle = title
-            filepath = os.path.join(path, realTitle)  # If not, check if exists the path with the same name
+            filepath = os.path.join(path, realTitle)
+            
             if not os.path.exists(filepath):
-                realTitle = checkIfSameName(title, title, mediaMoved, 1)  # If not, check if exists the path to the same name adding (1), (2), etc
+                # Check for duplicate names (recursion)
+                realTitle = checkIfSameName(title, title, mediaMoved, 1)
                 filepath = os.path.join(path, realTitle)
+                
                 if not os.path.exists(filepath):
-                    title = (title.rsplit('.', 1)[0])[:47] + "." + title.rsplit('.', 1)[1]  # Sometimes title is limited to 47 characters, check also that
-                    realTitle = str(title.rsplit('.', 1)[0] + "-editado." + title.rsplit('.', 1)[1])
+                    # Handle 47 character title limit
+                    title = (title.rsplit('.', 1)[0])[:47] + "." + title.rsplit('.', 1)[1]
+                    realTitle = str(title.rsplit('.', 1)[0] + "-" + editedWord + "." + title.rsplit('.', 1)[1])
                     filepath = os.path.join(path, realTitle)
+                    
                     if not os.path.exists(filepath):
                         realTitle = str(title.rsplit('.', 1)[0] + "(1)." + title.rsplit('.', 1)[1])
                         filepath = os.path.join(path, realTitle)
+                        
                         if not os.path.exists(filepath):
                             realTitle = title
                             filepath = os.path.join(path, realTitle)
+                            
                             if not os.path.exists(filepath):
                                 realTitle = checkIfSameName(title, title, mediaMoved, 1)
                                 filepath = os.path.join(path, realTitle)
-                                if not os.path.exists(filepath):  # If path not found, return null
-                                    realTitle = None
-                        else:
-                            filepath = os.path.join(path, title)  # Move original media to another folder
-                            os.replace(filepath, os.path.join(nonEdited, title))
-                    else:
-                        filepath = os.path.join(path, title)  # Move original media to another folder
-                        os.replace(filepath, os.path.join(nonEdited, title))
-        else:
-            filepath = os.path.join(path, title)  # Move original media to another folder
-            os.replace(filepath, os.path.join(nonEdited, title))
-    else:
-        filepath = os.path.join(path, title)  # Move original media to another folder
-        os.replace(filepath, os.path.join(nonEdited, title))
-
+                                if not os.path.exists(filepath):
+                                    return "None"
     return str(realTitle)
 
-
-# Supress incompatible characters
 def fixTitle(title):
+    """Removes incompatible characters from the filename"""
     bad_chars = '%<>=:?¿*#&{}\\|@!+|"\''
     return str(title).translate(str.maketrans('', '', bad_chars))
 
-# Recursive function to search name if its repeated
-def checkIfSameName(title, titleFixed, mediaMoved, recursionTime):
+def checkIfSameName(title: str, titleFixed, mediaMoved, recursionTime):
+    """Recursive function to find a unique name if repeated."""
     if titleFixed in mediaMoved:
         titleFixed = title.rsplit('.', 1)[0] + "(" + str(recursionTime) + ")" + "." + title.rsplit('.', 1)[1]
         return checkIfSameName(title, titleFixed, mediaMoved, recursionTime + 1)
     else:
         return titleFixed
 
-def createFolders(fixed, nonEdited):
-    if not os.path.exists(fixed):
-        os.mkdir(fixed)
-
-    if not os.path.exists(nonEdited):
-        os.mkdir(nonEdited)
-
 def setWindowsTime(filepath, timeStamp):
-    setctime(filepath, timeStamp)  # Set windows file creation time
-    date = datetime.fromtimestamp(timeStamp)
-    modTime = time.mktime(date.timetuple())
-    os.utime(filepath, (modTime, modTime))  # Set windows file modification time
+    """Sets the Windows file creation and modification timestamps"""
+    try:
+        setctime(filepath, timeStamp)
+        date = datetime.fromtimestamp(timeStamp)
+        modTime = time.mktime(date.timetuple())
+        os.utime(filepath, (modTime, modTime))
+    except Exception as e:
+        print(f"Error setting Windows time for {filepath}: {e}")
 
+# GPS & MATH CONVERSIONS
 def to_deg(value, loc):
-    """convert decimal coordinates into degrees, munutes and seconds tuple
-    Keyword arguments: value is float gps-value, loc is direction list ["S", "N"] or ["W", "E"]
-    return: tuple like (25, 13, 48.343 ,'N')
-    """
+    """Converts decimal coordinates into (degrees, minutes, seconds, direction)"""
     if value < 0:
         loc_value = loc[0]
     elif value > 0:
@@ -96,22 +122,21 @@ def to_deg(value, loc):
     sec = round((t1 - min) * 60, 5)
     return (deg, min, sec, loc_value)
 
-
 def change_to_rational(number):
-    """convert a number to rational
-    Keyword arguments: number
-    return: tuple like (1, 2), (numerator, denominator)
-    """
+    """Converts a number to a rational (numerator, denominator) tuple"""
     f = Fraction(str(number))
     return (f.numerator, f.denominator)
 
+# PHOTO METADATA (PIEXIF)
+def set_photo_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
+    """Sets EXIF metadata for image files using the piexif library"""
+    try:
+        exif_dict = piexif.load(filepath)
+    except Exception:
+        exif_dict = {"0th": {}, "Exif": {}, "GPS": {}, "1st": {}, "thumbnail": None}
 
-def set_EXIF(filepath, lat, lng, altitude, timeStamp, description=""):
-    exif_dict = piexif.load(filepath)
-
-    dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")  # Create date object
+    dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")
     
-    # Initialize the dictionaries if they do not exist in the original image
     if '0th' not in exif_dict: exif_dict['0th'] = {}
     if 'Exif' not in exif_dict: exif_dict['Exif'] = {}
 
@@ -122,75 +147,67 @@ def set_EXIF(filepath, lat, lng, altitude, timeStamp, description=""):
     if description:
         exif_dict['0th'][piexif.ImageIFD.ImageDescription] = description.encode('utf-8')
 
+    # GPS Injection
+    if lat != 0.0 or lng != 0.0:
+        try:
+            lat_deg = to_deg(lat, ["S", "N"])
+            lng_deg = to_deg(lng, ["W", "E"])
+
+            exiv_lat = (change_to_rational(lat_deg[0]), change_to_rational(lat_deg[1]), change_to_rational(lat_deg[2]))
+            exiv_lng = (change_to_rational(lng_deg[0]), change_to_rational(lng_deg[1]), change_to_rational(lng_deg[2]))
+
+            exif_dict['GPS'] = {
+                piexif.GPSIFD.GPSVersionID: (2, 0, 0, 0),
+                piexif.GPSIFD.GPSAltitudeRef: 1 if altitude < 0 else 0,
+                piexif.GPSIFD.GPSAltitude: change_to_rational(round(abs(altitude), 2)),
+                piexif.GPSIFD.GPSLatitudeRef: lat_deg[3],
+                piexif.GPSIFD.GPSLatitude: exiv_lat,
+                piexif.GPSIFD.GPSLongitudeRef: lng_deg[3],
+                piexif.GPSIFD.GPSLongitude: exiv_lng,
+            }
+        except Exception:
+            pass
+
     exif_bytes = piexif.dump(exif_dict)
     piexif.insert(exif_bytes, filepath)
 
-
-    try:
-        exif_dict = piexif.load(filepath)
-        lat_deg = to_deg(lat, ["S", "N"])
-        lng_deg = to_deg(lng, ["W", "E"])
-
-        exiv_lat = (change_to_rational(lat_deg[0]), change_to_rational(lat_deg[1]), change_to_rational(lat_deg[2]))
-        exiv_lng = (change_to_rational(lng_deg[0]), change_to_rational(lng_deg[1]), change_to_rational(lng_deg[2]))
-
-        gps_ifd = {
-            piexif.GPSIFD.GPSVersionID: (2, 0, 0, 0),
-            piexif.GPSIFD.GPSAltitudeRef: 1,
-            piexif.GPSIFD.GPSAltitude: change_to_rational(round(altitude, 2)),
-            piexif.GPSIFD.GPSLatitudeRef: lat_deg[3],
-            piexif.GPSIFD.GPSLatitude: exiv_lat,
-            piexif.GPSIFD.GPSLongitudeRef: lng_deg[3],
-            piexif.GPSIFD.GPSLongitude: exiv_lng,
-        }
-
-        exif_dict['GPS'] = gps_ifd
-
-        exif_bytes = piexif.dump(exif_dict)
-        piexif.insert(exif_bytes, filepath)
-
-    except Exception as e:
-        print("Coordinates not settled")
-        pass
-
-def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
-    # Format the date for ExifTool (YYYY:MM:DD HH:MM:SS)
+def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description="", camera_make="", camera_model="", author="", software=""):
+    """Injects metadata into video files using ExifTool"""
     dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")
 
-    # Prepare tags to inject
+    # All the datas to transfer
     tags = {
-        "AllDates": dateTime,
-        "Keys:CreationDate": dateTime,
-        "QuickTime:CreateDate": dateTime,
-        "QuickTime:ModifyDate": dateTime
+        "AllDates": dateTime,            # Sets DateTimeOriginal, CreateDate, ModifyDate
+        "Keys:CreationDate": dateTime, 
+        "Artist": author,
+        "Author": author,
+        "Make": camera_make,
+        "Model": camera_model,
     }
 
     if description:
+        tags["Description"] = description
+        tags["ImageDescription"] = description
+        tags["Title"] = description
         tags["ItemList:Title"] = description
         tags["ItemList:Description"] = description
 
-    # Do not inject position if Google Takeout returned 0.0 by default
     if lat != 0.0 or lng != 0.0:
         tags["Keys:GPSCoordinates"] = f"{lat} {lng} {altitude}"
         tags["UserData:GPSCoordinates"] = f"{lat} {lng} {altitude}"
+        # Standard GPS tags
+        tags["GPSLatitude"] = lat
+        tags["GPSLongitude"] = lng
+        tags["GPSAltitude"] = altitude
 
-    # Explicitly search for exiftool.exe in the script folder
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    exiftool_path = os.path.join(script_dir, "exiftool.exe")
-    
-    if not os.path.exists(exiftool_path):
-        candidates = [f for f in os.listdir(script_dir) if f.lower().startswith("exiftool") and f.lower().endswith(".exe")]
-        if candidates:
-            exiftool_path = os.path.join(script_dir, candidates[0])
-        else:
-            exiftool_path = "exiftool" # Fallback to PATH variable
+    if software: # example : CapCut / adobe / Da Vinci...
+        tags["Software"] = software
+        tags["CreatorTool"] = software
+        tags["HandlerDescription"] = software
 
-    # Execute ExifTool without creating a backup copy (-overwrite_original)
+    exiftool_path = get_exiftool_path()
     try:
         with exiftool.ExifToolHelper(executable=exiftool_path) as et:
             et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
     except Exception as e:
-        if "not found" in str(e).lower() or isinstance(e, FileNotFoundError):
-            raise Exception("ExifTool not found. Please download exiftool.exe and place it in the same folder as the script.")
-        else:
-            raise Exception(f"ExifTool execution error : {str(e)}")
+        print(f"ExifTool error for {filepath}: {e}")
