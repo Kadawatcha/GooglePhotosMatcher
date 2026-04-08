@@ -5,7 +5,6 @@ import piexif
 from win32_setctime import setctime
 from fractions import Fraction
 import exiftool
-import shutil
 import sys 
 
 # Function to search media associated to the JSON
