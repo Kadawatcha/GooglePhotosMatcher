@@ -10,4 +10,5 @@ files/dist*
 files/build*
 files/GPMatcher.spec
 
-files/README.txt # exiftool readme 
+# exiftool readme 
+files/README.txt 
