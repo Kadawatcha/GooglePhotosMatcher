@@ -5,7 +5,8 @@ import piexif
 from win32_setctime import setctime
 from fractions import Fraction
 import exiftool
-
+import shutil
+import sys 
 
 # Function to search media associated to the JSON
 def searchMedia(path, title, mediaMoved, nonEdited, editedWord):
@@ -153,6 +154,41 @@ def set_EXIF(filepath, lat, lng, altitude, timeStamp, description=""):
         print("Coordinates not settled")
         pass
 
+
+# Only for the videos metadatas 
+def get_exiftool_path():
+    """
+    Stops the program if ExifTool files are not correctly placed 
+    inside the 'files' subdirectory.
+    """
+    
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # define mandatory paths
+    exiftool_exe = os.path.join(script_dir, "exiftool.exe")
+    exiftool_lib = os.path.join(script_dir, "exiftool_files")
+    
+    # Particularity of exitfool : if we want he works we need to rename it
+    # So for more user friendly experience we rename authomaticaly the file 
+    exiftoo_to_formate = os.path.join(script_dir, "exiftool(-k).exe")
+    if os.path.exists(exiftoo_to_formate):
+        os.rename(exiftoo_to_formate, exiftool_exe)
+
+
+    # 3. Strict validation: Check for BOTH the executable and the folder
+    # If one is missing, we display an error and kill the process
+    if not os.path.isfile(exiftool_exe) or not os.path.isdir(exiftool_lib):
+        print("\n[ERROR]")
+        print("Missing dependencies in the 'files' directory!")
+        print(f"Please ensure 'exiftool.exe' or 'exiftool(-k).exe' and 'exiftool_files/' are present in: {script_dir}")
+        
+        # Stop execution immediately
+        sys.exit(1)
+
+    # Success: Return the verified path
+    return exiftool_exe
+
 def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
     # Format the date for ExifTool (YYYY:MM:DD HH:MM:SS)
     dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")
@@ -174,17 +210,8 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
         tags["Keys:GPSCoordinates"] = f"{lat} {lng} {altitude}"
         tags["UserData:GPSCoordinates"] = f"{lat} {lng} {altitude}"
 
-    # Explicitly search for exiftool.exe in the script folder
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    exiftool_path = os.path.join(script_dir, "exiftool.exe")
-    
-    if not os.path.exists(exiftool_path):
-        candidates = [f for f in os.listdir(script_dir) if f.lower().startswith("exiftool") and f.lower().endswith(".exe")]
-        if candidates:
-            exiftool_path = os.path.join(script_dir, candidates[0])
-        else:
-            exiftool_path = "exiftool" # Fallback to PATH variable
-
+    # Get the verified path to exiftool
+    exiftool_path = get_exiftool_path()
     # Execute ExifTool without creating a backup copy (-overwrite_original).
     # This saves storage space, assuming the user has the original Google Takeout ZIP file as a backup
     try:
