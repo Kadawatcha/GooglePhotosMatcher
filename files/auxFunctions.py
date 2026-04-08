@@ -16,7 +16,9 @@ from fractions import Fraction
 # Run the following command in your terminal from the project root:
 #
 # pyinstaller --noconsole --onefile --icon=assets/photos.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photos.ico;." --paths files files/window.py
-# DEV : Create .exe file with integrated exiftool 
+
+# And the .exe file is ready !
+
 def resource_path(relative_path: str) -> str:
     """ Finds the actual path to the resource file for PyInstaller (_MEIPASS) """
     try:
