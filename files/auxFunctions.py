@@ -107,6 +107,10 @@ def change_to_rational(number):
 
 
 def set_EXIF(filepath, lat, lng, altitude, timeStamp, description=""):
+    """"
+    Sets EXIF metadata (date, description, and GPS) for an image file using piexif.
+    """
+    
     exif_dict = piexif.load(filepath)
 
     dateTime = datetime.fromtimestamp(timeStamp).strftime("%Y:%m:%d %H:%M:%S")  # Create date object
@@ -197,7 +201,8 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
         "AllDates": dateTime,
         "Keys:CreationDate": dateTime,
         "QuickTime:CreateDate": dateTime,
-        "QuickTime:ModifyDate": dateTime
+        "QuickTime:ModifyDate": dateTime,
+        
     }
 
     if description:
