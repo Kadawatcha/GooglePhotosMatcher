@@ -78,6 +78,6 @@ while True:
                  "Example (Spain): 'editado'\n"
                  "Example (France): 'modifié'\n\n"
                  "If left blank, 'editado' is used by default.", 
-                 icon=resource_path("assets/photos.ico"))
+                 icon=resource_path(icon_path))
 
 window.close()
