@@ -72,12 +72,12 @@ while True:
         window['Match'].update(disabled=False)
 
     elif event == "Help":
-        sg.Popup("Information", 
-                 "Google Photos often downloads two versions: 'Photo.jpg' and 'Photo-edited.jpg'.\n\n"
-                 "The suffix depends on your Google account language.\n"
-                 "Example (Spain): 'editado'\n"
-                 "Example (France): 'modifié'\n\n"
-                 "If left blank, 'editado' is used by default.", 
-                 icon=resource_path(icon_path))
+        sg.Popup("Edited Photo Suffix", 
+         "To match your files correctly, GPMatcher needs to know the suffix "
+         "Google uses for your edited photos.\n\n"
+         "Common examples include 'editado' (Spanish) or 'modifié' (French).\n\n"
+         "Please enter your language's suffix below. If you're not sure, "
+         "leave it blank to use 'editado' by default.", 
+         icon=resource_path(icon_path))
 
 window.close()

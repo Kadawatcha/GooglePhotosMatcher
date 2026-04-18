@@ -1,66 +1,103 @@
-# Google Photos Matcher (v 1.2)
+# Google Photos Matcher (v1.3)
 
-Simple executable to match metadata from JSONs to original images/videos.
+> Simple tool to restore metadata (date, GPS coordinates, etc.) from Google Photos JSON files back into your original images and videos — just like [MetadataFixer](https://metadatafixer.com/pricing), but **free and open source**!
 
-Same work than [MetadataFixer](https://metadatafixer.com/pricing) but its free!
+---
 
-## Wiki 📖
+## How it works 📖
 
-When you download the images from google photos, they lose some metadata such as the date and the coordinates in which they were taken.
+When you download media from Google Photos via Takeout, the files lose important metadata such as the date taken and GPS coordinates. Google stores this data separately in `.json` sidecar files.
 
-This algorithm is able to match this information in the image/video from the downloaded JSONs
+**GPMatcher** reads those JSONs and writes the metadata back into your photos and videos automatically.
 
-## Usage
+---
 
-1. Download your _Google Photos_ media from [Takeout](https://takeout.google.com/)
+## Usage (EXE — no setup required) 🚀
 
-2. Download and execute GPMatcher.exe *(No installation, Python, or additional libraries required. The EXE is fully standalone*
+1. Download your _Google Photos_ media from [Google Takeout](https://takeout.google.com/)
 
-**Pay no attention to `requirements.txt` / `requirements-dev.txt` or for dev see : https://github.com/anderbggo/GooglePhotosMatcher/blob/main/files/README.md)**
+2. Download and run **GPMatcher.exe** — no installation, Python, or additional libraries needed. The EXE is fully standalone.
 
-3. [Optional] Type custom suffix used for edited photos (explained in the program)
+3. _(Optional)_ Enter the custom suffix used for edited photos (explained inside the app)
 
-4. Select the folder in which images/videos along with its JSONs were downloaded ('Photos from 2022' or 'Takeout' for example)
+4. Select the folder containing your images/videos and their JSONs (e.g. `Photos from 2022` or the root `Takeout` folder)
 
-*Note : The script will automatically search for subfolders to convert all files*
+   > The app will automatically scan all subfolders
 
-5. Click on _Match_ button
+5. Click the **Match** button
 
-6. Matched images/videos will be on directory _Matched_ inside the same path
+6. Your matched files will appear in a `Matched` folder inside the selected directory
 
-## FAQs
+---
 
-### Why is there another folder called _EditedRaw_?
+## FAQs ❓
 
-Images and videos edited from _Google Photos's_ editor will have 2 different versions: 
+### Why is there a folder called _EditedRaw_?
 
-  1. Edited version
-  2. Original version
-  
-Edited version will be stored in _Matched_ while original in _EditedRaw_
+Photos edited in Google Photos have two versions:
 
-### Why some images/videos stay unmatched?
+| Folder | Content |
+|--------|---------|
+| `Matched` | Edited version |
+| `EditedRaw` | Original (unedited) version |
 
-Sometimes, the algorithm does not recognize the names of the images due to the presence of some special characters. These files will remain in the same folder. To fix it, rename both the JSON and the original file.
+### Why do some files stay unmatched?
 
-#### For example: 
+Special characters in filenames can prevent the algorithm from matching them. To fix this:
 
-  - Algorithm fails with image _%E&xample.jpg_
+1. Rename both the image and its JSON — e.g. `%E&xample.jpg` → `Example.jpg` and `%E&xample.json` → `Example.json`
+2. Open the JSON and update the `title` field to match the new filename
+3. Run GPMatcher again
 
+---
 
-#### Solution
+## For developers 🛠️
 
-1. Rename _%E&xample.jpg_ to _Example.jpg_ and _%E&xample.json_ to _Example.json_ 
+> **Prerequisites:** Create a virtual environment at the root of the project first:
+> ```
+> python -m venv venv
+> venv\Scripts\activate
+> ```
 
-2. Open JSON and change title attribute to _Example.jpg_
+### Option A — Build the .exe
 
-3. Run again
+1. Install build dependencies:
+   ```
+   pip install -r "requirements-dev.txt"
+   ```
+
+2. Download **exiftool** for Windows (64-bit): [direct download](https://sourceforge.net/projects/exiftool/files/exiftool-13.55_64.zip/download) or visit [exiftool.org](https://exiftool.org/)
+
+3. Rename `exiftool(-k).exe` → `exiftool.exe`
+
+4. Place `exiftool.exe` and the `exiftool_files` folder at the root of the project
+
+5. Run this command from the project root:
+   ```
+   pyinstaller --noconsole --onefile --clean --hidden-import PySimpleGUI --icon=assets/photos.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photos.ico;." --paths files files/window.py
+   ```
+
+`GPMatcher.exe` will appear at the project root — ready to use!
+
+### Option B — Run without building
+
+1. Install runtime dependencies:
+   ```
+   pip install -r "requirements.txt"
+   ```
+
+2. Run:
+   ```
+   python files/window.py
+   ```
+
+---
 
 ## Contributors ✒️
 
-* **anderbggo** - Author
-* **Freepik** - Icon creator
+- **[anderbggo](https://github.com/anderbggo)** — Author
+- **[Kadawatcha](https://github.com/Kadawatcha)** — Contributor
 
-## Buy me a coffee☕
+## Buy me a coffee ☕
 
-* [Buy me a coffee](https://buymeacoffee.com/anderbggo)
+[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-☕-yellow)](https://buymeacoffee.com/anderbggo)
