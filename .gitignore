@@ -1,16 +1,22 @@
-
+# Python cache and virtual environments
+__pycache__/
 *.pyc
-*.xml
-.venv
-files/exiftool.exe
-files/exiftool_files/
+venv/
+.venv/
 
-# dev : create .exe file 
-build*
-GPMatcher.spec
+# PyInstaller build files
+build/
+dist/
+*.spec
 
-# exiftool readme 
-files/README.txt 
-# exitool files 
-exiftool.exe
+# All executables (GPMatcher, ExifTool, etc.)
+*.exe
+
+# ExifTool extra files
 exiftool_files/
+files/exiftool_files/
+files/README.txt
+
+# Editor & IDE files
+.vscode/
+*.xml
