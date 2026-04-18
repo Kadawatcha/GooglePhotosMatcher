@@ -3,6 +3,11 @@ import json
 import PySimpleGUI as sg
 from auxFunctions import *
 
+def log(window, msg):
+    """Send a log message to the UI"""
+    window.write_event_value('-LOG-', msg)
+    print(msg)
+
 def mainProcess(browserPath, window, editedW):
     # Supported extensions
     piexifCodecs = [k.casefold() for k in ['TIF', 'TIFF', 'JPEG', 'JPG']] #TODO: PNG ?
@@ -46,9 +51,16 @@ def mainProcess(browserPath, window, editedW):
             continue
 
         progress = round(((index + 1) / total_files) * 100, 2)
-        window.write_event_value('-UPDATE_PROGRESS-', progress)
+        window.write_event_value('-UPDATE_PROGRESS-', (progress, os.path.basename(json_path)))
 
-        if 'title' not in data or 'photoTakenTime' not in data:
+        if 'title' not in data:
+            log(window, f"SKIP (no title): {os.path.basename(json_path)}")
+            continue
+
+        # Support both photoTakenTime and photoLastModifiedTime (supplemental-metadata)
+        has_time = 'photoTakenTime' in data or 'photoLastModifiedTime' in data
+        if not has_time:
+            log(window, f"SKIP (no timestamp): {os.path.basename(json_path)}")
             continue
 
         titleOriginal:str = data['title']
@@ -80,24 +92,50 @@ def mainProcess(browserPath, window, editedW):
             mediaMoved[current_dir] = []
 
         title = "None"
+        editedTitle = None
+        originalTitle = None
         for candidate in base_candidates:
-            title = searchMedia(current_dir, candidate, mediaMoved[current_dir], nonEditedMediaPath, editedWord)
-            if str(title) != "None":
+            editedTitle, originalTitle = searchMedia(current_dir, candidate, mediaMoved[current_dir], nonEditedMediaPath, editedWord)
+            if editedTitle or originalTitle:
                 titleOriginal = candidate
                 break
+
+        # Determine which file goes to MatchedMedia
+        # If there's an edited version: edited -> MatchedMedia, original -> EditedRaw
+        # If only original: original -> MatchedMedia
+        title = editedTitle or originalTitle
+        raw_title = originalTitle if editedTitle else None
 
         filepath = None
         already_moved = False
         
-        if str(title) == "None":
-            # Check if already moved
+        if not title:
+            # Check if already moved (exact match or prefix match for truncated names)
             for cand in base_candidates:
                 if os.path.exists(os.path.join(fixedMediaPath, cand)):
                     title = cand
                     filepath = os.path.join(fixedMediaPath, title)
                     already_moved = True
                     break
+            # Try prefix match in MatchedMedia for truncated filenames
             if not already_moved:
+                import glob
+                for cand in base_candidates:
+                    cand_clean = fixTitle(cand)
+                    if '.' in cand_clean:
+                        cand_base, cand_ext = cand_clean.rsplit('.', 1)
+                        safe_prefix = cand_base[:47].replace('[', '[[]').replace(']', '[]]')
+                        matches = glob.glob(os.path.join(fixedMediaPath, f"{safe_prefix}*.{cand_ext}"))
+                        for m in matches:
+                            if not m.endswith('.json'):
+                                title = os.path.basename(m)
+                                filepath = m
+                                already_moved = True
+                                break
+                    if already_moved:
+                        break
+            if not already_moved:
+                log(window, f"NOT FOUND: {titleOriginal}")
                 errorCounter += 1
                 continue
         else:
@@ -108,7 +146,8 @@ def mainProcess(browserPath, window, editedW):
             # set data to dict for IDE and the method .get 
             data: dict = data 
             
-            photo_info: dict = data.get('photoTakenTime', {})
+            # Use photoTakenTime, fallback to photoLastModifiedTime (supplemental-metadata)
+            photo_info: dict = data.get('photoTakenTime', data.get('photoLastModifiedTime', {}))
             
             timeStamp = int(photo_info.get('timestamp', 0))
          
@@ -151,14 +190,22 @@ def mainProcess(browserPath, window, editedW):
             setWindowsTime(filepath, timeStamp)
 
             if not already_moved:
+                # Move edited (or only) file to MatchedMedia
                 os.replace(filepath, os.path.join(fixedMediaPath, title))
                 mediaMoved[current_dir].append(title)
+                
+                # Move original to EditedRaw (only when an edited version exists)
+                if raw_title and raw_title != title:
+                    raw_path = os.path.join(current_dir, raw_title)
+                    if os.path.exists(raw_path):
+                        os.replace(raw_path, os.path.join(nonEditedMediaPath, raw_title))
+                        mediaMoved[current_dir].append(raw_title)
                 
             os.remove(json_path)
             successCounter += 1
             
         except Exception as e:
-            print(f"Error processing {title}: {e}")
+            log(window, f"ERROR {title}: {e}")
             errorCounter += 1
             continue
 

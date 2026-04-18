@@ -3,7 +3,7 @@ import sys
 import time
 import json
 import piexif
-import exiftool
+import subprocess
 from datetime import datetime
 from win32_setctime import setctime
 from fractions import Fraction
@@ -37,49 +37,87 @@ def get_exiftool_path() -> str:
 
 
 
+import glob
+
 # MEDIA SEARCH & UTILS
 def searchMedia(path, title, mediaMoved, nonEdited, editedWord):
-    """Searches for the media file associated with a JSON metadata file."""
+    """Searches for the media file associated with a JSON metadata file.
+    Returns (editedTitle, originalTitle) tuple.
+    - editedTitle: the edited version (e.g. foto-editada.jpg), or the original if no edited exists
+    - originalTitle: the original version to move to EditedRaw, or None if no edited version exists
+    """
     title = fixTitle(title)
-    # Check for edited version
-    realTitle = str(title.rsplit('.', 1)[0] + "-" + editedWord + "." + title.rsplit('.', 1)[1])
-    filepath = os.path.join(path, realTitle)
     
-    if not os.path.exists(filepath):
-        # Check for (1) suffix version
-        realTitle = str(title.rsplit('.', 1)[0] + "(1)." + title.rsplit('.', 1)[1])
-        filepath = os.path.join(path, realTitle)
-        
-        if not os.path.exists(filepath) or os.path.exists(os.path.join(path, title + "(1).json")):
-            # Check for exact title match
-            realTitle = title
-            filepath = os.path.join(path, realTitle)
-            
-            if not os.path.exists(filepath):
-                # Check for duplicate names (recursion)
-                realTitle = checkIfSameName(title, title, mediaMoved, 1)
-                filepath = os.path.join(path, realTitle)
-                
-                if not os.path.exists(filepath):
-                    # Handle 47 character title limit
-                    title = (title.rsplit('.', 1)[0])[:47] + "." + title.rsplit('.', 1)[1]
-                    realTitle = str(title.rsplit('.', 1)[0] + "-" + editedWord + "." + title.rsplit('.', 1)[1])
-                    filepath = os.path.join(path, realTitle)
-                    
-                    if not os.path.exists(filepath):
-                        realTitle = str(title.rsplit('.', 1)[0] + "(1)." + title.rsplit('.', 1)[1])
-                        filepath = os.path.join(path, realTitle)
-                        
-                        if not os.path.exists(filepath):
-                            realTitle = title
-                            filepath = os.path.join(path, realTitle)
-                            
-                            if not os.path.exists(filepath):
-                                realTitle = checkIfSameName(title, title, mediaMoved, 1)
-                                filepath = os.path.join(path, realTitle)
-                                if not os.path.exists(filepath):
-                                    return "None"
-    return str(realTitle)
+    def _try(name):
+        """Returns the name if the file exists on disk, else None."""
+        if os.path.exists(os.path.join(path, name)):
+            return name
+        return None
+    
+    base, ext = title.rsplit('.', 1) if '.' in title else (title, '')
+    ext_dot = f".{ext}" if ext else ""
+    
+    # Build list of edited suffixes: user input first, then common ones
+    edit_suffixes = []
+    if editedWord:
+        edit_suffixes.append(editedWord)
+    common_edits = ["editado", "editada", "edited", "modifié", "modifiée", "bearbeitet", "bewerkt", "modificato", "modificata", "redigerad"]
+    for s in common_edits:
+        if s.casefold() not in [e.casefold() for e in edit_suffixes]:
+            edit_suffixes.append(s)
+    
+    def _findEdited(b, e):
+        """Find an edited version of the file."""
+        for suffix in edit_suffixes:
+            found = _try(f"{b}-{suffix}{e}")
+            if found:
+                return found
+        return None
+    
+    def _findOriginal(b, e):
+        """Find the original file (exact match, (1) suffix, or duplicate name)."""
+        # (1) suffix
+        candidate = f"{b}(1){e}"
+        if _try(candidate) and not os.path.exists(os.path.join(path, f"{title}(1).json")):
+            return candidate
+        # Exact match
+        found = _try(f"{b}{e}")
+        if found:
+            return found
+        # Duplicate names
+        found = checkIfSameName(f"{b}{e}", f"{b}{e}", mediaMoved, 1)
+        if _try(found):
+            return found
+        return None
+
+    # Try with full title
+    edited = _findEdited(base, ext_dot)
+    original = _findOriginal(base, ext_dot)
+    
+    if edited or original:
+        return (edited, original)
+    
+    # Try with 47-char truncated base (Google's limit)
+    trunc_base = base[:47]
+    if trunc_base != base:
+        edited = _findEdited(trunc_base, ext_dot)
+        original = _findOriginal(trunc_base, ext_dot)
+        if edited or original:
+            return (edited, original)
+    
+    # Last resort: prefix match on filesystem (handles truncated JSON titles)
+    for prefix in [base, trunc_base]:
+        if not prefix:
+            continue
+        safe_prefix = prefix.replace('[', '[[]').replace(']', '[]]')
+        matches = glob.glob(os.path.join(path, f"{safe_prefix}*{ext_dot}"))
+        for match in matches:
+            candidate = os.path.basename(match)
+            if candidate.endswith('.json') or candidate in mediaMoved:
+                continue
+            return (None, candidate)
+    
+    return (None, None)
 
 def fixTitle(title):
     """Removes incompatible characters from the filename"""
@@ -166,7 +204,18 @@ def set_photo_metadata(filepath, lat, lng, altitude, timeStamp, description=""):
         except Exception:
             pass
 
-    exif_bytes = piexif.dump(exif_dict)
+    try:
+        exif_bytes = piexif.dump(exif_dict)
+    except Exception:
+        # Some images (e.g. WhatsApp) have corrupted EXIF tags with wrong types.
+        # Strip all non-standard tags and keep only what we set.
+        clean_dict = {"0th": {}, "Exif": {}, "GPS": exif_dict.get("GPS", {}), "1st": {}, "thumbnail": None}
+        clean_dict['0th'][piexif.ImageIFD.DateTime] = dateTime
+        clean_dict['Exif'][piexif.ExifIFD.DateTimeOriginal] = dateTime
+        clean_dict['Exif'][piexif.ExifIFD.DateTimeDigitized] = dateTime
+        if description:
+            clean_dict['0th'][piexif.ImageIFD.ImageDescription] = description.encode('utf-8')
+        exif_bytes = piexif.dump(clean_dict)
     piexif.insert(exif_bytes, filepath)
 
 def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description="", camera_make="", camera_model="", author="", software=""):
@@ -204,8 +253,20 @@ def set_video_metadata(filepath, lat, lng, altitude, timeStamp, description="", 
         tags["HandlerDescription"] = software
 
     exiftool_path = get_exiftool_path()
+    args = [exiftool_path, "-overwrite_original"]
+    for key, value in tags.items():
+        if value != "" and value != 0 and value != 0.0:
+            args.append(f"-{key}={value}")
+    args.append(filepath)
+
     try:
-        with exiftool.ExifToolHelper(executable=exiftool_path) as et:
-            et.set_tags([filepath], tags=tags, params=["-overwrite_original"])
+        subprocess.run(
+            args,
+            timeout=30,
+            capture_output=True,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"ExifTool TIMEOUT (30s) for {filepath}, skipping.")
     except Exception as e:
         print(f"ExifTool error for {filepath}: {e}")

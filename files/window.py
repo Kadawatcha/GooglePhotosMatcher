@@ -21,7 +21,8 @@ layout = [
     [sg.Button("Match", size=(10, 1))],
     [sg.T("")],
     [sg.ProgressBar(100, visible=False, orientation='h', border_width=4, key='-PROGRESS_BAR-')],
-    [sg.T("", key='-PROGRESS_LABEL-', size=(50, 1))]
+    [sg.T("", key='-PROGRESS_LABEL-', size=(50, 1))],
+    [sg.Multiline(size=(70, 10), key='-LOG-', autoscroll=True, disabled=True, visible=False, font=('Consolas', 9))],
 ]
 # serch logo (for compatibility windows and python)
 icon_path = resource_path("assets/photos.ico")
@@ -56,10 +57,12 @@ while True:
         ).start()
 
     elif event == '-UPDATE_PROGRESS-':
-        progress = values[event]
-        window['-PROGRESS_LABEL-'].update(f"Progress: {progress}%", visible=True)
+        progress, filename = values[event]
+        window['-PROGRESS_LABEL-'].update(f"Progress: {progress}% — {filename}", visible=True)
         window['-PROGRESS_BAR-'].update(progress, visible=True)
-
+    elif event == '-LOG-':
+        window['-LOG-'].update(visible=True)
+        window['-LOG-'].print(values[event])
     elif event == '-UPDATE_ERROR-':
         window['-PROGRESS_LABEL-'].update(values[event], visible=True, text_color='red')
         window['Match'].update(disabled=False)
