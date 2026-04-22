@@ -74,7 +74,7 @@ Special characters in filenames can prevent the algorithm from matching them. To
 
 5. Run this command from the project root:
    ```
-   pyinstaller --noconsole --onefile --clean --hidden-import PySimpleGUI --icon=assets/photos.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photos.ico;." --paths files files/window.py
+   pyinstaller --noconsole --onefile --clean --hidden-import PySimpleGUI --icon=assets/photo.ico --name "GPMatcher" --distpath "." --add-data "exiftool.exe;." --add-data "assets/photo.ico;." --paths files files/window.py
    ```
 
 `GPMatcher.exe` will appear at the project root — ready to use!

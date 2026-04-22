@@ -25,9 +25,9 @@ layout = [
     [sg.Multiline(size=(70, 10), key='-LOG-', autoscroll=True, disabled=True, visible=False, font=('Consolas', 9))],
 ]
 # serch logo (for compatibility windows and python)
-icon_path = resource_path("assets/photos.ico")
+icon_path = resource_path("assets/photo.ico")
 if not os.path.exists(icon_path):
-    icon_path = resource_path("photos.ico")
+    icon_path = resource_path("photo.ico")
 
 window = sg.Window('Google Photos Matcher',
                    layout, 
