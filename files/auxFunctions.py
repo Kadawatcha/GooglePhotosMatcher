@@ -1,12 +1,12 @@
 import os
 import sys
 import time
-import json
 import piexif
 import subprocess
 from datetime import datetime
 from win32_setctime import setctime
 from fractions import Fraction
+import glob
 
 
 def resource_path(relative_path: str) -> str:
@@ -37,7 +37,7 @@ def get_exiftool_path() -> str:
 
 
 
-import glob
+
 
 # MEDIA SEARCH & UTILS
 def searchMedia(path, title, mediaMoved, nonEdited, editedWord):
