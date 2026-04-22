@@ -1,8 +1,7 @@
 import os
 import json
 import PySimpleGUI as sg
-from auxFunctions import *
-
+from auxFunctions import searchMedia, fixTitle, set_photo_metadata, set_video_metadata, setWindowsTime
 def log(window, msg):
     """Send a log message to the UI"""
     window.write_event_value('-LOG-', msg)
