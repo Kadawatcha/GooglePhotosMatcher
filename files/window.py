@@ -42,7 +42,18 @@ while True:
         
     elif event == "Match":
         if not values["-IN2-"]:
-            sg.popup_error("Please select a folder first!")
+            error_layout = [
+                [sg.Text("Please select a folder first !", pad=(0, 20))],
+                [sg.Button("OK", size=(8, 1))]
+            ]
+            error_window = sg.Window("GPM - Error", 
+                                     error_layout, 
+                                     icon=icon_path, size=(500, 120),
+                                     element_justification='center', 
+                                     modal=True
+                                     )
+            error_window.read()
+            error_window.close()
             continue
             
         window['Match'].update(disabled=True)
