@@ -7,7 +7,7 @@ from datetime import datetime
 from win32_setctime import setctime
 from fractions import Fraction
 import glob
-
+import logging
 
 def resource_path(relative_path: str) -> str:
     """ Finds the actual path to the resource file for PyInstaller (_MEIPASS) """
@@ -29,7 +29,7 @@ def get_exiftool_path() -> str:
     exiftool_exe = os.path.join(base_path, "exiftool.exe")
     
     if not os.path.isfile(exiftool_exe):
-        print(f"\n[CRITICAL ERROR] ExifTool not found at: {exiftool_exe}")
+        logging.error(f"Exiftool not found at {exiftool_exe}")
         sys.exit(1)
         
     return exiftool_exe
