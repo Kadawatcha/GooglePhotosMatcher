@@ -1,101 +1,211 @@
-from auxFunctions import *
+import os
 import json
-from PIL import Image
 import PySimpleGUI as sg
+from auxFunctions import searchMedia, fixTitle, set_photo_metadata, set_video_metadata, setWindowsTime
+def log(window, msg):
+    """Send a log message to the UI"""
+    window.write_event_value('-LOG-', msg)
+    print(msg)
 
 def mainProcess(browserPath, window, editedW):
-    piexifCodecs = [k.casefold() for k in ['TIF', 'TIFF', 'JPEG', 'JPG']]
+    # Supported extensions
+    piexifCodecs = [k.casefold() for k in ['TIF', 'TIFF', 'JPEG', 'JPG']] #TODO: PNG ?
+    videoCodecs = [k.casefold() for k in ['MP4', 'MOV', '3GP', 'M4V', 'MKV']]
 
-    mediaMoved = []  # array with names of all the media already matched
-    path = browserPath  # source path
-    fixedMediaPath = path + "\MatchedMedia"  # destination path
-    nonEditedMediaPath = path + "\EditedRaw"
+    mediaMoved: dict[str, list[str]] = {}
+    root_fixed = os.path.join(browserPath, "MatchedMedia")
+    root_nonEdited = os.path.join(browserPath, "EditedRaw")
+    
     errorCounter = 0
     successCounter = 0
     editedWord = editedW or "editado"
-    print(editedWord)
 
     try:
-        obj = list(os.scandir(path))  #Convert iterator into a list to sort it
-        obj.sort(key=lambda s: len(s.name)) #Sort by length to avoid name(1).jpg be processed before name.jpg
-        createFolders(fixedMediaPath, nonEditedMediaPath)
+        json_files = []
+        for root, dirs, files in os.walk(browserPath):
+            # Exclude output folders from search
+            dirs[:] = [d for d in dirs if os.path.join(root, d) not in (root_fixed, root_nonEdited)]
+            file: str = "" 
+            for file in files:
+                if file.endswith(".json"):
+                    json_files.append(os.path.join(root, file))
+        
+        # Sort by filename length to process originals before duplicates
+        json_files.sort(key=lambda s: len(os.path.basename(s)))
     except Exception as e:
-        window['-PROGRESS_LABEL-'].update("Choose a valid directory", visible=True, text_color='red')
+        window.write_event_value('-UPDATE_ERROR-', "Invalid directory selected")
         return
 
-    for entry in obj:
-        if entry.is_file() and entry.name.endswith(".json"):  # Check if file is a JSON
-            with open(entry, encoding="utf8") as f:  # Load JSON into a var
+    if not json_files:
+        window.write_event_value('-UPDATE_ERROR-', "No JSON files found")
+        return
+
+    total_files = len(json_files)
+    for index, json_path in enumerate(json_files):
+        try:
+            with open(json_path, encoding="utf8") as f:
                 data = json.load(f)
+        except Exception:
+            errorCounter += 1
+            continue
 
-            progress = round(obj.index(entry)/len(obj)*100, 2)
-            window['-PROGRESS_LABEL-'].update(str(progress) + "%", visible=True)
-            window['-PROGRESS_BAR-'].update(progress, visible=True)
+        progress = round(((index + 1) / total_files) * 100, 2)
+        window.write_event_value('-UPDATE_PROGRESS-', (progress, os.path.basename(json_path)))
 
-            #SEARCH MEDIA ASSOCIATED TO JSON
+        if 'title' not in data:
+            log(window, f"SKIP (no title): {os.path.basename(json_path)}")
+            continue
 
-            titleOriginal = data['title']  # Store metadata into vars
+        # Support both photoTakenTime and photoLastModifiedTime (supplemental-metadata)
+        has_time = 'photoTakenTime' in data or 'photoLastModifiedTime' in data
+        if not has_time:
+            log(window, f"SKIP (no timestamp): {os.path.basename(json_path)}")
+            continue
 
-            try:
-                title = searchMedia(path, titleOriginal, mediaMoved, nonEditedMediaPath, editedWord)
+        titleOriginal:str = data['title']
+        # Clean supplemental metadata suffixes
+        for ext in ['.supplemental-metadata', '.supplemental-metada']:
+            titleOriginal = titleOriginal.replace(ext, '')
 
-            except Exception as e:
-                print("Error on searchMedia() with file " + titleOriginal)
+        current_dir = os.path.dirname(json_path)
+        rel_dir = os.path.relpath(current_dir, browserPath)
+        if rel_dir == ".": rel_dir = ""
+            
+        fixedMediaPath = os.path.join(root_fixed, rel_dir)
+        nonEditedMediaPath = os.path.join(root_nonEdited, rel_dir)
+        
+        os.makedirs(fixedMediaPath, exist_ok=True)
+        os.makedirs(nonEditedMediaPath, exist_ok=True)
+
+        # Handle Google Photos hidden suffixes
+        parts = titleOriginal.rsplit('.', 1)
+        base_candidates = [titleOriginal]
+        if len(parts) == 2:
+            for suffix in ['_PORTRAIT', 'PORTRAIT', '_NFNR', '_MFNR']:
+                base_candidates.append(f"{parts[0]}{suffix}.{parts[1]}")
+            for suffix in ['_PORTRAIT', 'PORTRAIT', '_NFNR', '_MFNR']:
+                if parts[0].endswith(suffix):
+                    base_candidates.append(f"{parts[0][:-len(suffix)]}.{parts[1]}")
+
+        if current_dir not in mediaMoved:
+            mediaMoved[current_dir] = []
+
+        title = "None"
+        editedTitle = None
+        originalTitle = None
+        for candidate in base_candidates:
+            editedTitle, originalTitle = searchMedia(current_dir, candidate, mediaMoved[current_dir], nonEditedMediaPath, editedWord)
+            if editedTitle or originalTitle:
+                titleOriginal = candidate
+                break
+
+        # Determine which file goes to MatchedMedia
+        # If there's an edited version: edited -> MatchedMedia, original -> EditedRaw
+        # If only original: original -> MatchedMedia
+        title = editedTitle or originalTitle
+        raw_title = originalTitle if editedTitle else None
+
+        filepath = None
+        already_moved = False
+        
+        if not title:
+            # Check if already moved (exact match or prefix match for truncated names)
+            for cand in base_candidates:
+                if os.path.exists(os.path.join(fixedMediaPath, cand)):
+                    title = cand
+                    filepath = os.path.join(fixedMediaPath, title)
+                    already_moved = True
+                    break
+            # Try prefix match in MatchedMedia for truncated filenames
+            if not already_moved:
+                import glob
+                for cand in base_candidates:
+                    cand_clean = fixTitle(cand)
+                    if '.' in cand_clean:
+                        cand_base, cand_ext = cand_clean.rsplit('.', 1)
+                        safe_prefix = cand_base[:47].replace('[', '[[]').replace(']', '[]]')
+                        matches = glob.glob(os.path.join(fixedMediaPath, f"{safe_prefix}*.{cand_ext}"))
+                        for m in matches:
+                            if not m.endswith('.json'):
+                                title = os.path.basename(m)
+                                filepath = m
+                                already_moved = True
+                                break
+                    if already_moved:
+                        break
+            if not already_moved:
+                log(window, f"NOT FOUND: {titleOriginal}")
                 errorCounter += 1
                 continue
+        else:
+            filepath = os.path.join(current_dir, title)
 
-            filepath = path + "\\" + title
-            if title == "None":
-                print(titleOriginal + " not found")
-                errorCounter += 1
-                continue
+        
+        try:
+            # set data to dict for IDE and the method .get 
+            data: dict = data 
+            
+            # Use photoTakenTime, fallback to photoLastModifiedTime (supplemental-metadata)
+            photo_info: dict = data.get('photoTakenTime', data.get('photoLastModifiedTime', {}))
+            
+            timeStamp = int(photo_info.get('timestamp', 0))
+         
+            # Location of the photo
+            geoData: dict = data.get('geoData', {})
+            lat = float(geoData.get('latitude', 0.0))
+            lng = float(geoData.get('longitude', 0.0))
+            alt = float(geoData.get('altitude', 0.0))
+            
+            description = data.get('description', '')
 
-            # METADATA EDITION
-            timeStamp = int(data['photoTakenTime']['timestamp'])  # Get creation time
-            print(filepath)
+            origin = data.get('googlePhotosOrigin', {})
+            
+            # Check if it if a dict for Type Hinting (more particulary .get)
+            if isinstance(origin, dict):
+                mobile = origin.get('mobileUpload', {})
+                if isinstance(mobile, dict):
+                    folder = mobile.get('deviceFolder', {})
+                    if isinstance(folder, dict):
+                        camera_make = folder.get('localFolderName', '')
+                    else:
+                        camera_make = ""
+                else:
+                    camera_make = ""
+            else:
+                camera_make = ""
+           
+            camera_model = "" 
+            software = "" 
 
-            if title.rsplit('.', 1)[1].casefold() in piexifCodecs:  # If EXIF is supported
-                try:
-                    im = Image.open(filepath)
-                    im.close()
-                    rgb_im = im.convert('RGB')
-                    os.replace(filepath, filepath.rsplit('.', 1)[0] + ".jpg")
-                    filepath = filepath.rsplit('.', 1)[0] + ".jpg"
-                    rgb_im.save(filepath)
+            ext = title.rsplit('.', 1)[1].casefold() if '.' in title else ""
 
-                except ValueError as e:
-                    print("Error converting to JPG in " + title)
-                    errorCounter += 1
-                    continue
 
-                try:
-                    set_EXIF(filepath, data['geoData']['latitude'], data['geoData']['longitude'], data['geoData']['altitude'], timeStamp)
+            # Set metadatas
+            if ext in piexifCodecs:
+                set_photo_metadata(filepath, lat, lng, alt, timeStamp, description)
+            elif ext in videoCodecs:
+                set_video_metadata(filepath, lat, lng, alt, timeStamp, description, camera_make, camera_model, "", software)
 
-                except Exception as e:  # Error handler
-                    print("Inexistent EXIF data for " + filepath)
-                    print(str(e))
-                    errorCounter += 1
-                    continue
+            setWindowsTime(filepath, timeStamp)
 
-            setWindowsTime(filepath, timeStamp) #Windows creation and modification time
-
-            #MOVE FILE AND DELETE JSON
-
-            os.replace(filepath, fixedMediaPath + "\\" + title)
-            os.remove(path + "\\" + entry.name)
-            mediaMoved.append(title)
+            if not already_moved:
+                # Move edited (or only) file to MatchedMedia
+                os.replace(filepath, os.path.join(fixedMediaPath, title))
+                mediaMoved[current_dir].append(title)
+                
+                # Move original to EditedRaw (only when an edited version exists)
+                if raw_title and raw_title != title:
+                    raw_path = os.path.join(current_dir, raw_title)
+                    if os.path.exists(raw_path):
+                        os.replace(raw_path, os.path.join(nonEditedMediaPath, raw_title))
+                        mediaMoved[current_dir].append(raw_title)
+                
+            os.remove(json_path)
             successCounter += 1
+            
+        except Exception as e:
+            log(window, f"ERROR {title}: {e}")
+            errorCounter += 1
+            continue
 
-    sucessMessage = " successes"
-    errorMessage = " errors"
-
-    #UPDATE INTERFACE
-    if successCounter == 1:
-        sucessMessage = " success"
-
-    if errorCounter == 1:
-        errorMessage = " error"
-
-    window['-PROGRESS_BAR-'].update(100, visible=True)
-    window['-PROGRESS_LABEL-'].update("Matching process finishhed with " + str(successCounter) + sucessMessage + " and " + str(errorCounter) + errorMessage + ".", visible=True, text_color='#c0ffb3')
-
+    window.write_event_value('-UPDATE_DONE-', (successCounter, errorCounter))

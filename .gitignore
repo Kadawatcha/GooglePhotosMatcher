@@ -1,3 +1,22 @@
-
+# Python cache and virtual environments
+__pycache__/
 *.pyc
+venv/
+.venv/
+
+# PyInstaller build files
+build/
+dist/
+*.spec
+
+# All executables (GPMatcher, ExifTool, etc.)
+*.exe
+
+# ExifTool extra files
+exiftool_files/
+files/exiftool_files/
+files/README.txt
+
+# Editor & IDE files
+.vscode/
 *.xml
