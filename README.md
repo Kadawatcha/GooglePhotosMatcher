@@ -1,6 +1,9 @@
-# Google Photos Matcher (v1.3)
+# Google Photos Matcher (v2.0)
 
 > Simple tool to restore metadata (date, GPS coordinates, etc.) from Google Photos JSON files back into your original images and videos — just like [MetadataFixer](https://metadatafixer.com/pricing), but **free and open source**!
+>
+> <img width="857" height="592" alt="image" src="https://github.com/user-attachments/assets/256f0470-0095-4167-854f-2994d360993b" />
+
 
 ---
 
