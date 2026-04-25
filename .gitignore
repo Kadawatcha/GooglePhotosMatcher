@@ -9,8 +9,8 @@ build/
 dist/
 *.spec
 
-# All executables (GPMatcher, ExifTool, etc.)
-*.exe
+
+exiftool.exe
 
 # ExifTool extra files
 exiftool_files/
